@@ -4,6 +4,7 @@ Package main of virtual CPU runner
 package main
 
 import (
+	"bufio"
 	"errors"
 	"flag"
 	"fmt"
@@ -33,7 +34,7 @@ func dumpSector(fh *os.File, sectorIndex int) error {
 		return err
 	}
 
-	fmt.Println("sector dump")
+	fmt.Println()
 
 	if len(sector) != 256 {
 		return errors.New("Invalid sector length")
@@ -74,6 +75,8 @@ func main() {
 
 	fileName := args[0]
 
+	reader := bufio.NewReader(os.Stdin)
+
 	// open file
 	fh, err := os.Open(fileName)
 	checkAndExit(err)
@@ -85,8 +88,17 @@ func main() {
 	err = dumpSector(fh, sectorIndex)
 	checkAndExit(err)
 
-	sectorIndex = 1
+	fmt.Println()
+	fmt.Printf(">")
+	line, err := reader.ReadString('\n')
 
-	err = dumpSector(fh, sectorIndex)
-	checkAndExit(err)
+	if line == "stats\n" {
+		fmt.Printf("File: %s\n", fileName)
+		fmt.Printf("Sector: %04XH (%d)\n", sectorIndex, sectorIndex)
+	} else {
+		sectorIndex = 1
+
+		err = dumpSector(fh, sectorIndex)
+		checkAndExit(err)
+	}
 }
