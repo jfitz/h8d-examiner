@@ -17,25 +17,22 @@ func checkAndExit(e error) {
 	}
 }
 
-func readSectors(name string) ([]byte, error) {
+func dumpSector(fh *os.File, sectorIndex int) error {
 	sector := make([]byte, 256)
 
-	f, err := os.Open(name)
+	pos := int64(sectorIndex) * 256
+
+	_, err := fh.Seek(pos, 0)
 	if err != nil {
-		return sector, err
+		fmt.Println("Sector does not exist")
+		return nil
 	}
 
-	defer f.Close()
-
-	_, err = f.Read(sector)
+	_, err = fh.Read(sector)
 	if err != nil {
-		return sector, err
+		return err
 	}
 
-	return sector, nil
-}
-
-func dumpSector(sector []byte) error {
 	fmt.Println("sector dump")
 
 	if len(sector) != 256 {
@@ -66,21 +63,6 @@ func dumpSector(sector []byte) error {
 	return nil
 }
 
-func examine(moduleFile string) error {
-	// read data
-	sector, err := readSectors(moduleFile)
-	if err != nil {
-		return err
-	}
-
-	err = dumpSector(sector)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func main() {
 	flag.Parse()
 	args := flag.Args()
@@ -90,8 +72,21 @@ func main() {
 		os.Exit(1)
 	}
 
-	moduleFile := args[0]
+	fileName := args[0]
 
-	err := examine(moduleFile)
+	// open file
+	fh, err := os.Open(fileName)
+	checkAndExit(err)
+
+	defer fh.Close()
+
+	sectorIndex := 0
+
+	err = dumpSector(fh, sectorIndex)
+	checkAndExit(err)
+
+	sectorIndex = 1
+
+	err = dumpSector(fh, sectorIndex)
 	checkAndExit(err)
 }
