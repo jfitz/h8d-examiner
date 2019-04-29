@@ -38,8 +38,7 @@ func dumpAscii(bytes []byte) {
 }
 
 func dumpSector(fh *os.File, sectorIndex int, base string) error {
-	sector := make([]byte, 256)
-
+	// position at the desired sector
 	pos := int64(sectorIndex) * 256
 
 	_, err := fh.Seek(pos, 0)
@@ -48,18 +47,21 @@ func dumpSector(fh *os.File, sectorIndex int, base string) error {
 		return nil
 	}
 
+	// read the sector
+	sector := make([]byte, 256)
 	_, err = fh.Read(sector)
 	if err != nil {
 		return err
 	}
 
-	fmt.Println()
-
 	if len(sector) != 256 {
 		return errors.New("Invalid sector length")
 	}
 
+	// display the sector
 	fmt.Println()
+
+	// print header information
 	if base == "hex" {
 		fmt.Printf("Sector: %04XH (%d):\n", sectorIndex, sectorIndex)
 	} else {
@@ -70,9 +72,11 @@ func dumpSector(fh *os.File, sectorIndex int, base string) error {
 
 	fmt.Println()
 
+	// print data in lines of 16 bytes
 	for i := 0; i < len(sector); i += 16 {
 		bytes := sector[i : i+16]
 
+		// print in hex or octal
 		if base == "hex" {
 			fmt.Printf("%02X: ", i)
 		} else {
@@ -87,6 +91,7 @@ func dumpSector(fh *os.File, sectorIndex int, base string) error {
 
 		fmt.Print("  ")
 
+		// print in ASCII (with dots for non-printable bytes)
 		dumpAscii(bytes)
 
 		fmt.Println()
@@ -105,6 +110,7 @@ func displayHelp() {
 }
 
 func main() {
+	// parse command line options
 	flag.Parse()
 	args := flag.Args()
 
@@ -113,62 +119,94 @@ func main() {
 		os.Exit(1)
 	}
 
+	// get file name
 	fileName := args[0]
 
 	reader := bufio.NewReader(os.Stdin)
 
-	// open file
+	// open the file
 	fh, err := os.Open(fileName)
 	checkAndExit(err)
 
 	defer fh.Close()
 
+	// get file statistics
+	fileInfo, err := fh.Stat()
+	fileSize := fileInfo.Size()
+	fileSizeInK := fileSize / 1024
+	fileSectorCount := fileSize / 256
+	fileLastSector := fileSectorCount - 1
+
+	// set default values
 	base := "hex"
 	sectorIndex := 0
-
-	err = dumpSector(fh, sectorIndex, base)
-	checkAndExit(err)
+	lastWasDump := false
 
 	numberPattern, err := regexp.Compile("^\\d+$")
 	checkAndExit(err)
 
+	// display the first sector
+	err = dumpSector(fh, sectorIndex, base)
+	checkAndExit(err)
+	fmt.Println()
+	lastWasDump = true
+
+	// prompt for command and process it
 	for {
-		fmt.Println()
+		// display prompt and read command
 		fmt.Printf(">")
 		line, err := reader.ReadString('\n')
 		checkAndExit(err)
 
+		// process the command
 		line = strings.TrimSpace(line)
 
 		if line == "quit" {
 			os.Exit(0)
 		} else if line == "help" {
 			displayHelp()
+			fmt.Println()
+			lastWasDump = false
 		} else if line == "stats" {
 			fmt.Printf("File: %s\n", fileName)
+			fmt.Printf("Size: %d (%dK)\n", fileSize, fileSizeInK)
+			fmt.Printf("Last sector: %04XH (%d)\n", fileLastSector, fileLastSector)
 			fmt.Printf("Sector: %04XH (%d)\n", sectorIndex, sectorIndex)
+			fmt.Println()
+			lastWasDump = false
 		} else if line == "" {
-			sectorIndex += 1
+			if lastWasDump {
+				sectorIndex += 1
+			}
 
 			err = dumpSector(fh, sectorIndex, base)
 			checkAndExit(err)
+			fmt.Println()
+			lastWasDump = true
 		} else if numberPattern.MatchString(line) {
 			sectorIndex, _ = strconv.Atoi(line)
 
 			err = dumpSector(fh, sectorIndex, base)
 			checkAndExit(err)
+			fmt.Println()
+			lastWasDump = true
 		} else if line == "octal" {
 			base = "octal"
 
 			err = dumpSector(fh, sectorIndex, base)
 			checkAndExit(err)
+			fmt.Println()
+			lastWasDump = true
 		} else if line == "hex" {
 			base = "hex"
 
 			err = dumpSector(fh, sectorIndex, base)
 			checkAndExit(err)
+			fmt.Println()
+			lastWasDump = true
 		} else {
 			displayHelp()
+			fmt.Println()
 		}
 	}
 }
