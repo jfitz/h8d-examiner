@@ -9,6 +9,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 )
 
 func checkAndExit(e error) {
@@ -39,6 +40,10 @@ func dumpSector(fh *os.File, sectorIndex int) error {
 	if len(sector) != 256 {
 		return errors.New("Invalid sector length")
 	}
+
+	fmt.Println()
+	fmt.Printf("Sector: %04XH (%d):\n", sectorIndex, sectorIndex)
+	fmt.Println()
 
 	for i := 0; i < len(sector); i += 16 {
 		fmt.Printf("%02X: ", i)
@@ -88,17 +93,34 @@ func main() {
 	err = dumpSector(fh, sectorIndex)
 	checkAndExit(err)
 
-	fmt.Println()
-	fmt.Printf(">")
-	line, err := reader.ReadString('\n')
-
-	if line == "stats\n" {
-		fmt.Printf("File: %s\n", fileName)
-		fmt.Printf("Sector: %04XH (%d)\n", sectorIndex, sectorIndex)
-	} else {
-		sectorIndex = 1
-
-		err = dumpSector(fh, sectorIndex)
+	for {
+		fmt.Println()
+		fmt.Printf(">")
+		line, err := reader.ReadString('\n')
 		checkAndExit(err)
+
+		line = strings.TrimSpace(line)
+
+		if line == "quit" {
+			os.Exit(0)
+		} else if line == "help" {
+			fmt.Println("quit  - exit the program")
+			fmt.Println("help  - print this message")
+			fmt.Println("nnn   - dump sector nnn")
+			fmt.Println("stats - display statistics")
+		} else if line == "stats" {
+			fmt.Printf("File: %s\n", fileName)
+			fmt.Printf("Sector: %04XH (%d)\n", sectorIndex, sectorIndex)
+		} else if line == "" {
+			sectorIndex += 1
+
+			err = dumpSector(fh, sectorIndex)
+			checkAndExit(err)
+		} else {
+			fmt.Println("quit  - exit the program")
+			fmt.Println("help  - print this message")
+			fmt.Println("nnn   - dump sector nnn")
+			fmt.Println("stats - display statistics")
+		}
 	}
 }
