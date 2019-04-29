@@ -21,7 +21,29 @@ func checkAndExit(e error) {
 	}
 }
 
-func dumpSector(fh *os.File, sectorIndex int) error {
+func dumpHex(bytes []byte) {
+	for _, b := range bytes {
+		fmt.Printf("%02X ", b)
+	}
+}
+
+func dumpOctal(bytes []byte) {
+	for _, b := range bytes {
+		fmt.Printf("%03o ", b)
+	}
+}
+
+func dumpAscii(bytes []byte) {
+	for _, b := range bytes {
+		if b >= ' ' && b <= 127 {
+			fmt.Printf("%c", b)
+		} else {
+			fmt.Print(".")
+		}
+	}
+}
+
+func dumpSector(fh *os.File, sectorIndex int, base string) error {
 	sector := make([]byte, 256)
 
 	pos := int64(sectorIndex) * 256
@@ -48,27 +70,31 @@ func dumpSector(fh *os.File, sectorIndex int) error {
 	fmt.Println()
 
 	for i := 0; i < len(sector); i += 16 {
+		bytes := sector[i : i+16]
+
 		fmt.Printf("%02X: ", i)
 
-		for j := 0; j < 16; j++ {
-			index := i + j
-			b := sector[index]
-			fmt.Printf("%02X ", b)
+		if base == "hex" {
+			dumpHex(bytes)
+		} else {
+			dumpOctal(bytes)
 		}
 
-		for j := 0; j < 16; j++ {
-			index := i + j
-			b := sector[index]
-			if b >= ' ' && b <= 127 {
-				fmt.Printf("%c", b)
-			} else {
-				fmt.Print(".")
-			}
-		}
+		dumpAscii(bytes)
+
 		fmt.Println()
 	}
 
 	return nil
+}
+
+func displayHelp() {
+	fmt.Println("quit  - exit the program")
+	fmt.Println("help  - print this message")
+	fmt.Println("nnn   - dump sector nnn")
+	fmt.Println("stats - display statistics")
+	fmt.Println("octal - show dump in octal")
+	fmt.Println("hex   - show dump in hex")
 }
 
 func main() {
@@ -90,9 +116,10 @@ func main() {
 
 	defer fh.Close()
 
+	base := "hex"
 	sectorIndex := 0
 
-	err = dumpSector(fh, sectorIndex)
+	err = dumpSector(fh, sectorIndex, base)
 	checkAndExit(err)
 
 	numberPattern, err := regexp.Compile("^\\d+$")
@@ -109,28 +136,32 @@ func main() {
 		if line == "quit" {
 			os.Exit(0)
 		} else if line == "help" {
-			fmt.Println("quit  - exit the program")
-			fmt.Println("help  - print this message")
-			fmt.Println("nnn   - dump sector nnn")
-			fmt.Println("stats - display statistics")
+			displayHelp()
 		} else if line == "stats" {
 			fmt.Printf("File: %s\n", fileName)
 			fmt.Printf("Sector: %04XH (%d)\n", sectorIndex, sectorIndex)
 		} else if line == "" {
 			sectorIndex += 1
 
-			err = dumpSector(fh, sectorIndex)
+			err = dumpSector(fh, sectorIndex, base)
 			checkAndExit(err)
 		} else if numberPattern.MatchString(line) {
 			sectorIndex, _ = strconv.Atoi(line)
 
-			err = dumpSector(fh, sectorIndex)
+			err = dumpSector(fh, sectorIndex, base)
+			checkAndExit(err)
+		} else if line == "octal" {
+			base = "octal"
+
+			err = dumpSector(fh, sectorIndex, base)
+			checkAndExit(err)
+		} else if line == "hex" {
+			base = "hex"
+
+			err = dumpSector(fh, sectorIndex, base)
 			checkAndExit(err)
 		} else {
-			fmt.Println("quit  - exit the program")
-			fmt.Println("help  - print this message")
-			fmt.Println("nnn   - dump sector nnn")
-			fmt.Println("stats - display statistics")
+			displayHelp()
 		}
 	}
 }
