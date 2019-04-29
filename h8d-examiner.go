@@ -9,6 +9,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -93,6 +95,9 @@ func main() {
 	err = dumpSector(fh, sectorIndex)
 	checkAndExit(err)
 
+	numberPattern, err := regexp.Compile("^\\d+$")
+	checkAndExit(err)
+
 	for {
 		fmt.Println()
 		fmt.Printf(">")
@@ -113,6 +118,11 @@ func main() {
 			fmt.Printf("Sector: %04XH (%d)\n", sectorIndex, sectorIndex)
 		} else if line == "" {
 			sectorIndex += 1
+
+			err = dumpSector(fh, sectorIndex)
+			checkAndExit(err)
+		} else if numberPattern.MatchString(line) {
+			sectorIndex, _ = strconv.Atoi(line)
 
 			err = dumpSector(fh, sectorIndex)
 			checkAndExit(err)
