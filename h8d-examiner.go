@@ -21,15 +21,9 @@ func checkAndExit(e error) {
 	}
 }
 
-func dumpHex(bytes []byte) {
-	for _, b := range bytes {
-		fmt.Printf("%02X ", b)
-	}
-}
-
 func dumpOctal(bytes []byte) {
 	for _, b := range bytes {
-		fmt.Printf("%03o ", b)
+		fmt.Printf(" %03o", b)
 	}
 }
 
@@ -66,19 +60,32 @@ func dumpSector(fh *os.File, sectorIndex int, base string) error {
 	}
 
 	fmt.Println()
-	fmt.Printf("Sector: %04XH (%d):\n", sectorIndex, sectorIndex)
+	if base == "hex" {
+		fmt.Printf("Sector: %04XH (%d):\n", sectorIndex, sectorIndex)
+	} else {
+		highByte := sectorIndex / 256
+		lowByte := sectorIndex % 256
+		fmt.Printf("Sector: %03o.%03oA (%d):\n", highByte, lowByte, sectorIndex)
+	}
+
 	fmt.Println()
 
 	for i := 0; i < len(sector); i += 16 {
 		bytes := sector[i : i+16]
 
-		fmt.Printf("%02X: ", i)
+		if base == "hex" {
+			fmt.Printf("%02X: ", i)
+		} else {
+			fmt.Printf("%03o: ", i)
+		}
 
 		if base == "hex" {
-			dumpHex(bytes)
+			fmt.Printf("% 02X", bytes)
 		} else {
 			dumpOctal(bytes)
 		}
+
+		fmt.Print("  ")
 
 		dumpAscii(bytes)
 
