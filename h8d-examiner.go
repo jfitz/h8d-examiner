@@ -101,42 +101,23 @@ func dumpSector(fh *os.File, sectorIndex int, base string) error {
 }
 
 func displayHelp() {
+	fmt.Println("stats - display statistics")
+	fmt.Println("hdos  - interpret as HDOS disk")
+	fmt.Println("cp/m  - interpret as CP/M disk")
 	fmt.Println("quit  - exit the program")
 	fmt.Println("help  - print this message")
-	fmt.Println("nnn   - dump sector nnn")
-	fmt.Println("stats - display statistics")
-	fmt.Println("octal - show dump in octal")
-	fmt.Println("hex   - show dump in hex")
 }
 
-func main() {
-	// parse command line options
-	flag.Parse()
-	args := flag.Args()
+func displaySectorHelp() {
+	fmt.Println("exit  - exit to main level")
+	fmt.Println("<RET> - dump next sector")
+	fmt.Println("nnn   - dump sector nnn")
+	fmt.Println("octal - show dump in octal")
+	fmt.Println("hex   - show dump in hex")
+	fmt.Println("help  - print this message")
+}
 
-	if len(args) == 0 {
-		fmt.Println("No file specified")
-		os.Exit(1)
-	}
-
-	// get file name
-	fileName := args[0]
-
-	reader := bufio.NewReader(os.Stdin)
-
-	// open the file
-	fh, err := os.Open(fileName)
-	checkAndExit(err)
-
-	defer fh.Close()
-
-	// get file statistics
-	fileInfo, err := fh.Stat()
-	fileSize := fileInfo.Size()
-	fileSizeInK := fileSize / 1024
-	fileSectorCount := fileSize / 256
-	fileLastSector := fileSectorCount - 1
-
+func sector(reader *bufio.Reader, fh *os.File) {
 	// set default values
 	base := "hex"
 	sectorIndex := 0
@@ -154,26 +135,15 @@ func main() {
 	// prompt for command and process it
 	for {
 		// display prompt and read command
-		fmt.Printf(">")
+		fmt.Printf("SECTOR> ")
 		line, err := reader.ReadString('\n')
 		checkAndExit(err)
 
 		// process the command
 		line = strings.TrimSpace(line)
 
-		if line == "quit" {
-			os.Exit(0)
-		} else if line == "help" {
-			displayHelp()
-			fmt.Println()
-			lastWasDump = false
-		} else if line == "stats" {
-			fmt.Printf("File: %s\n", fileName)
-			fmt.Printf("Size: %d (%dK)\n", fileSize, fileSizeInK)
-			fmt.Printf("Last sector: %04XH (%d)\n", fileLastSector, fileLastSector)
-			fmt.Printf("Sector: %04XH (%d)\n", sectorIndex, sectorIndex)
-			fmt.Println()
-			lastWasDump = false
+		if line == "exit" {
+			return
 		} else if line == "" {
 			if lastWasDump {
 				sectorIndex += 1
@@ -204,6 +174,67 @@ func main() {
 			checkAndExit(err)
 			fmt.Println()
 			lastWasDump = true
+		} else {
+			displaySectorHelp()
+			fmt.Println()
+		}
+	}
+}
+
+func main() {
+	// parse command line options
+	flag.Parse()
+	args := flag.Args()
+
+	if len(args) == 0 {
+		fmt.Println("No file specified")
+		os.Exit(1)
+	}
+
+	// get file name
+	fileName := args[0]
+
+	reader := bufio.NewReader(os.Stdin)
+
+	// open the file
+	fh, err := os.Open(fileName)
+	checkAndExit(err)
+
+	defer fh.Close()
+
+	// get file statistics
+	fileInfo, err := fh.Stat()
+	fileSize := fileInfo.Size()
+	fileSizeInK := fileSize / 1024
+	fileSectorCount := fileSize / 256
+	fileLastSector := fileSectorCount - 1
+
+	// prompt for command and process it
+	for {
+		// display prompt and read command
+		fmt.Printf("> ")
+		line, err := reader.ReadString('\n')
+		checkAndExit(err)
+
+		// process the command
+		line = strings.TrimSpace(line)
+
+		if line == "quit" {
+			os.Exit(0)
+		} else if line == "stats" {
+			fmt.Printf("File: %s\n", fileName)
+			fmt.Printf("Size: %d (%dK)\n", fileSize, fileSizeInK)
+			fmt.Printf("Last sector: %04XH (%d)\n", fileLastSector, fileLastSector)
+			fmt.Println()
+		} else if line == "sector" {
+			sector(reader, fh)
+		} else if line == "hdos" {
+			fmt.Println("not implemented")
+		} else if line == "cp/m" {
+			fmt.Println("not implemented")
+		} else if line == "help" {
+			displayHelp()
+			fmt.Println()
 		} else {
 			displayHelp()
 			fmt.Println()
