@@ -1,10 +1,11 @@
 /*
-Package main of virtual CPU runner
+Package main of H-8/H-89 disk reader
 */
 package main
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
 	"flag"
 	"fmt"
@@ -37,25 +38,34 @@ func dumpAscii(bytes []byte) {
 	}
 }
 
-func dumpSector(fh *os.File, sectorIndex int, base string) error {
+func readSector(fh *os.File, sectorIndex int) ([]byte, error) {
+	sector := make([]byte, 256)
+
 	// position at the desired sector
 	pos := int64(sectorIndex) * 256
 
 	_, err := fh.Seek(pos, 0)
 	if err != nil {
-		fmt.Println("Sector does not exist")
-		return nil
+		return sector, errors.New("Sector does not exist")
 	}
 
 	// read the sector
-	sector := make([]byte, 256)
 	_, err = fh.Read(sector)
 	if err != nil {
-		return err
+		return sector, err
 	}
 
 	if len(sector) != 256 {
-		return errors.New("Invalid sector length")
+		return sector, errors.New("Invalid sector length")
+	}
+
+	return sector, nil
+}
+
+func dumpSector(fh *os.File, sectorIndex int, base string) error {
+	sector, err := readSector(fh, sectorIndex)
+	if err != nil {
+		return err
 	}
 
 	// display the sector
@@ -181,6 +191,77 @@ func sector(reader *bufio.Reader, fh *os.File) {
 	}
 }
 
+func hdos(reader *bufio.Reader, fh *os.File) {
+	// read sector 9
+	sectorIndex := 9
+	sector, err := readSector(fh, sectorIndex)
+	if err != nil {
+		fmt.Println("Cannot read sector 9")
+		return
+	}
+
+	// extract and validate sector number for first directory sector [10,399]
+	dis := int(sector[3]) + int(sector[4])*256
+
+	// extract and validate sector number for GRT [10,399]
+	grt := int(sector[5]) + int(sector[6])*256
+
+	// extract and validate sectors per group in 2,4,8
+	spg := int(sector[7])
+
+	// extract and validate init.abs version in 00h,15h,16h,20h
+	ver := int(sector[9])
+
+	// extract and validate number of sectors
+	siz := int(sector[12]) + int(sector[13])*256
+
+	// extract and validate sector size == 256
+	pss := int(sector[14]) + int(sector[15])*256
+
+	// extract and validate flags 0 => 40tk1s 1=> 40tk2s 2=> 80tk1s 3=> 80tk2s
+
+	// extract and validate label ASCII text, zero terminated
+	labelBytes := sector[17:77]
+	n := bytes.IndexByte(labelBytes, byte(0))
+	if n > -1 {
+		labelBytes = labelBytes[:n]
+	}
+
+	labelError := false
+	for _, b := range labelBytes {
+		if b < 32 || b > 126 {
+			labelError = true
+		}
+	}
+
+	label := string(labelBytes)
+
+	// extract and validate sectors per track == 10
+	spt := int(sector[79])
+
+	// if version 20h: num sectors match flags 0 => 400 1 => 800 2 => 800 3 => 1600
+
+	// display info
+	fmt.Printf("First directory sector: 0x%02X (%d)\n", dis, dis)
+	fmt.Printf("GRT sector: 0x%02X (%d)\n", grt, grt)
+	fmt.Printf("Sectors per group: %d\n", spg)
+	fmt.Printf("INIT.ABS version: 0x%02X\n", ver)
+	if ver >= 0x20 {
+		fmt.Printf("Number of sectors: %d\n", siz)
+		fmt.Printf("Sector size: %d\n", pss)
+		fmt.Printf("Sectors per track: %d\n", spt)
+	}
+	fmt.Printf("Label: %s\n", label)
+
+	if labelError {
+		fmt.Println("This disk has a strange label")
+	}
+}
+
+func cpm(reader *bufio.Reader, fh *os.File) {
+	fmt.Println("not implemented")
+}
+
 func main() {
 	// parse command line options
 	flag.Parse()
@@ -229,9 +310,9 @@ func main() {
 		} else if line == "sector" {
 			sector(reader, fh)
 		} else if line == "hdos" {
-			fmt.Println("not implemented")
+			hdos(reader, fh)
 		} else if line == "cp/m" {
-			fmt.Println("not implemented")
+			cpm(reader, fh)
 		} else if line == "help" {
 			displayHelp()
 			fmt.Println()
