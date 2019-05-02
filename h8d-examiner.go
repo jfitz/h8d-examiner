@@ -127,6 +127,17 @@ func displaySectorHelp() {
 	fmt.Println("help  - print this message")
 }
 
+func displayHdosHelp() {
+	fmt.Println("stats - display statistics")
+	fmt.Println("cat   - list files on disk")
+	fmt.Println("dir   - same as CAT")
+	fmt.Println("type  - display contents of file")
+	fmt.Println("dump  - dump contents of file")
+	fmt.Println("copy  - copy file to your filesystem")
+	fmt.Println("exit  - exit to main level")
+	fmt.Println("help  - print this message")
+}
+
 func sector(reader *bufio.Reader, fh *os.File) {
 	// set default values
 	base := "hex"
@@ -212,13 +223,17 @@ func hdos(reader *bufio.Reader, fh *os.File) {
 	// extract and validate init.abs version in 00h,15h,16h,20h
 	ver := int(sector[9])
 
-	// extract and validate number of sectors
-	siz := int(sector[12]) + int(sector[13])*256
+	siz := 400
+	pss := 256
+	if ver > 0x20 {
+		// extract and validate number of sectors
+		siz = int(sector[12]) + int(sector[13])*256
 
-	// extract and validate sector size == 256
-	pss := int(sector[14]) + int(sector[15])*256
+		// extract and validate sector size == 256
+		pss = int(sector[14]) + int(sector[15])*256
 
-	// extract and validate flags 0 => 40tk1s 1=> 40tk2s 2=> 80tk1s 3=> 80tk2s
+		// extract and validate flags 0 => 40tk1s 1=> 40tk2s 2=> 80tk1s 3=> 80tk2s
+	}
 
 	// extract and validate label ASCII text, zero terminated
 	labelBytes := sector[17:77]
@@ -241,20 +256,48 @@ func hdos(reader *bufio.Reader, fh *os.File) {
 
 	// if version 20h: num sectors match flags 0 => 400 1 => 800 2 => 800 3 => 1600
 
-	// display info
-	fmt.Printf("First directory sector: 0x%02X (%d)\n", dis, dis)
-	fmt.Printf("GRT sector: 0x%02X (%d)\n", grt, grt)
-	fmt.Printf("Sectors per group: %d\n", spg)
-	fmt.Printf("INIT.ABS version: 0x%02X\n", ver)
-	if ver >= 0x20 {
-		fmt.Printf("Number of sectors: %d\n", siz)
-		fmt.Printf("Sector size: %d\n", pss)
-		fmt.Printf("Sectors per track: %d\n", spt)
-	}
-	fmt.Printf("Label: %s\n", label)
-
 	if labelError {
 		fmt.Println("This disk has a strange label")
+	}
+
+	// prompt for command and process it
+	done := false
+	for !done {
+		// display prompt and read command
+		fmt.Printf("HDOS> ")
+		line, err := reader.ReadString('\n')
+		checkAndExit(err)
+
+		// process the command
+		line = strings.TrimSpace(line)
+
+		if line == "exit" {
+			done = true
+		} else if line == "stats" {
+			fmt.Printf("First directory sector: 0x%02X (%d)\n", dis, dis)
+			fmt.Printf("GRT sector: 0x%02X (%d)\n", grt, grt)
+			fmt.Printf("Sectors per group: %d\n", spg)
+			fmt.Printf("INIT.ABS version: 0x%02X\n", ver)
+			fmt.Printf("Number of sectors: %d\n", siz)
+			fmt.Printf("Sector size: %d\n", pss)
+			fmt.Printf("Sectors per track: %d\n", spt)
+			fmt.Printf("Label: %s\n", label)
+			fmt.Println()
+		} else if line == "cat" || line == "dir" {
+			fmt.Println("not implemented")
+		} else if line == "type" {
+			fmt.Println("not implemented")
+		} else if line == "dump" {
+			fmt.Println("not implemented")
+		} else if line == "copy" {
+			fmt.Println("not implemented")
+		} else if line == "help" {
+			displayHdosHelp()
+			fmt.Println()
+		} else {
+			displayHdosHelp()
+			fmt.Println()
+		}
 	}
 }
 
