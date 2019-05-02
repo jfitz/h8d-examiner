@@ -284,7 +284,45 @@ func hdos(reader *bufio.Reader, fh *os.File) {
 			fmt.Printf("Label: %s\n", label)
 			fmt.Println()
 		} else if line == "cat" || line == "dir" {
-			fmt.Println("not implemented")
+			// start with first directory sector
+			sectorIndex := dis
+
+			for sectorIndex != 0 {
+				// read 2 sectors (512 bytes)
+				first, err := readSector(fh, sectorIndex)
+				if err != nil {
+					fmt.Println("Cannot read 1")
+					return
+				}
+
+				second, err := readSector(fh, sectorIndex+1)
+				if err != nil {
+					fmt.Println("Cannot read 2")
+					return
+				}
+
+				directoryBlock := append(first, second...)
+
+				// parse and print 22 entries of 23 bytes each
+				for i := 0; i < 22; i++ {
+					start := i * 23
+					end := start + 23
+					entry := directoryBlock[start:end]
+					nameBytes := entry[0:8]
+					if nameBytes[0] < 0xfe {
+						extensionBytes := entry[8:11]
+						name := string(nameBytes)
+						extension := string(extensionBytes)
+						fmt.Printf("%s.%s\n", name, extension)
+					}
+				}
+
+				// read 6 bytes
+				vectorBytes := directoryBlock[506:512]
+
+				// byte [4] is index of next directory pair
+				sectorIndex = int(vectorBytes[4])
+			}
 		} else if line == "type" {
 			fmt.Println("not implemented")
 		} else if line == "dump" {
