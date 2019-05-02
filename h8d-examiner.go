@@ -38,6 +38,16 @@ func dumpAscii(bytes []byte) {
 	}
 }
 
+func trimSlice(slice []byte) []byte {
+	n := bytes.IndexByte(slice, byte(0))
+
+	if n > -1 {
+		slice = slice[:n]
+	}
+
+	return slice
+}
+
 func readSector(fh *os.File, sectorIndex int) ([]byte, error) {
 	sector := make([]byte, 256)
 
@@ -60,6 +70,23 @@ func readSector(fh *os.File, sectorIndex int) ([]byte, error) {
 	}
 
 	return sector, nil
+}
+
+func readSectorPair(fh *os.File, sectorIndex int) ([]byte, error) {
+	// read 2 sectors (512 bytes)
+	first, err := readSector(fh, sectorIndex)
+	if err != nil {
+		return []byte{}, errors.New("Cannot read first directory sector")
+	}
+
+	second, err := readSector(fh, sectorIndex+1)
+	if err != nil {
+		return []byte{}, errors.New("Cannot read second directory sector")
+	}
+
+	directoryBlock := append(first, second...)
+
+	return directoryBlock, nil
 }
 
 func dumpSector(fh *os.File, sectorIndex int, base string) error {
@@ -202,6 +229,22 @@ func sector(reader *bufio.Reader, fh *os.File) {
 	}
 }
 
+func printDirectoryBlock(directoryBlock []byte) {
+	// parse and print 22 entries of 23 bytes each
+	for i := 0; i < 22; i++ {
+		start := i * 23
+		end := start + 23
+		entry := directoryBlock[start:end]
+		nameBytes := entry[0:8]
+		if nameBytes[0] < 0xfe {
+			extensionBytes := entry[8:11]
+			name := string(trimSlice(nameBytes))
+			extension := string(trimSlice(extensionBytes))
+			fmt.Printf("%-8s.%-3s\n", name, extension)
+		}
+	}
+}
+
 func hdos(reader *bufio.Reader, fh *os.File) {
 	// read sector 9
 	sectorIndex := 9
@@ -223,8 +266,12 @@ func hdos(reader *bufio.Reader, fh *os.File) {
 	// extract and validate init.abs version in 00h,15h,16h,20h
 	ver := int(sector[9])
 
+	// default values for H-17 SSSD disk
 	siz := 400
 	pss := 256
+	spt := 10
+
+	// HDOS 2.0 knows about H-47 and H-37 disks
 	if ver > 0x20 {
 		// extract and validate number of sectors
 		siz = int(sector[12]) + int(sector[13])*256
@@ -233,14 +280,13 @@ func hdos(reader *bufio.Reader, fh *os.File) {
 		pss = int(sector[14]) + int(sector[15])*256
 
 		// extract and validate flags 0 => 40tk1s 1=> 40tk2s 2=> 80tk1s 3=> 80tk2s
+
+		// extract and validate sectors per track == 10
+		spt = int(sector[79])
 	}
 
 	// extract and validate label ASCII text, zero terminated
-	labelBytes := sector[17:77]
-	n := bytes.IndexByte(labelBytes, byte(0))
-	if n > -1 {
-		labelBytes = labelBytes[:n]
-	}
+	labelBytes := trimSlice(sector[17:77])
 
 	labelError := false
 	for _, b := range labelBytes {
@@ -250,9 +296,6 @@ func hdos(reader *bufio.Reader, fh *os.File) {
 	}
 
 	label := string(labelBytes)
-
-	// extract and validate sectors per track == 10
-	spt := int(sector[79])
 
 	// if version 20h: num sectors match flags 0 => 400 1 => 800 2 => 800 3 => 1600
 
@@ -288,34 +331,12 @@ func hdos(reader *bufio.Reader, fh *os.File) {
 			sectorIndex := dis
 
 			for sectorIndex != 0 {
-				// read 2 sectors (512 bytes)
-				first, err := readSector(fh, sectorIndex)
+				directoryBlock, err := readSectorPair(fh, sectorIndex)
 				if err != nil {
-					fmt.Println("Cannot read 1")
-					return
+					fmt.Println(err.Error())
 				}
 
-				second, err := readSector(fh, sectorIndex+1)
-				if err != nil {
-					fmt.Println("Cannot read 2")
-					return
-				}
-
-				directoryBlock := append(first, second...)
-
-				// parse and print 22 entries of 23 bytes each
-				for i := 0; i < 22; i++ {
-					start := i * 23
-					end := start + 23
-					entry := directoryBlock[start:end]
-					nameBytes := entry[0:8]
-					if nameBytes[0] < 0xfe {
-						extensionBytes := entry[8:11]
-						name := string(nameBytes)
-						extension := string(extensionBytes)
-						fmt.Printf("%s.%s\n", name, extension)
-					}
-				}
+				printDirectoryBlock(directoryBlock)
 
 				// read 6 bytes
 				vectorBytes := directoryBlock[506:512]
@@ -384,7 +405,7 @@ func main() {
 		if line == "quit" {
 			os.Exit(0)
 		} else if line == "stats" {
-			fmt.Printf("File: %s\n", fileName)
+			fmt.Printf("Image: %s\n", fileName)
 			fmt.Printf("Size: %d (%dK)\n", fileSize, fileSizeInK)
 			fmt.Printf("Last sector: %04XH (%d)\n", fileLastSector, fileLastSector)
 			fmt.Println()
