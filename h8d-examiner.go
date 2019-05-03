@@ -272,19 +272,19 @@ func flagsToText(flags byte) string {
 	return text
 }
 
-func countSectors(grt []byte, firstCluster byte, clusterSize byte) int {
+func countClusters(grt []byte, firstCluster byte) int {
 	index := firstCluster
 
 	count := 0
 	for index != 0 {
-		count += 1
 		index = grt[index]
+		count += 1
 	}
 
 	return count
 }
 
-func printDirectoryBlock(directoryBlock []byte, grtSector []byte) {
+func printDirectoryBlock(directoryBlock []byte, grtSector []byte, clusterSize int) {
 	// parse and print 22 entries of 23 bytes each
 	for i := 0; i < 22; i++ {
 		start := i * 23
@@ -304,8 +304,9 @@ func printDirectoryBlock(directoryBlock []byte, grtSector []byte) {
 			modifyDate := dateToText(modifyDateBytes)
 
 			firstCluster := entry[16]
-			clusterSize := entry[13]
-			sectorCount := countSectors(grtSector, firstCluster, clusterSize)
+			clusterCount := countClusters(grtSector, firstCluster)
+			lastSector := int(entry[18])
+			sectorCount := (clusterCount-1)*clusterSize + lastSector
 
 			fmt.Printf("%-8s.%-3s    %s     %s    %s   %d\n", name, extension, flags, createDate, modifyDate, sectorCount)
 		}
@@ -370,6 +371,9 @@ func hdos(reader *bufio.Reader, fh *os.File) {
 		fmt.Println("This disk has a strange label")
 	}
 
+	grtSector, err := readSector(fh, grt)
+	checkAndExit(err)
+
 	// prompt for command and process it
 	done := false
 	for !done {
@@ -392,11 +396,12 @@ func hdos(reader *bufio.Reader, fh *os.File) {
 			fmt.Printf("Sector size: %d\n", pss)
 			fmt.Printf("Sectors per track: %d\n", spt)
 			fmt.Printf("Label: %s\n", label)
+
+			freeClusterCount := countClusters(grtSector, 0)
+			freeSectorCount := freeClusterCount * spg
+			fmt.Printf("Free sectors: %d\n", freeSectorCount)
 			fmt.Println()
 		} else if line == "cat" || line == "dir" {
-			grtSector, err := readSector(fh, grt)
-			checkAndExit(err)
-
 			// start with first directory sector
 			sectorIndex := dis
 
@@ -406,7 +411,7 @@ func hdos(reader *bufio.Reader, fh *os.File) {
 					fmt.Println(err.Error())
 				}
 
-				printDirectoryBlock(directoryBlock, grtSector)
+				printDirectoryBlock(directoryBlock, grtSector, spg)
 
 				// read 6 bytes
 				vectorBytes := directoryBlock[506:512]
