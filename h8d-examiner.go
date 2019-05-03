@@ -341,8 +341,8 @@ func hdos(reader *bufio.Reader, fh *os.File) {
 				// read 6 bytes
 				vectorBytes := directoryBlock[506:512]
 
-				// byte [4] is index of next directory pair
-				sectorIndex = int(vectorBytes[4])
+				// bytes [4] and [5] are index of next directory pair
+				sectorIndex = int(vectorBytes[4]) + int(vectorBytes[5])*256
 			}
 		} else if line == "type" {
 			fmt.Println("not implemented")
