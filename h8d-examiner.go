@@ -229,6 +229,19 @@ func sector(reader *bufio.Reader, fh *os.File) {
 	}
 }
 
+func dateToText(dateBytes []byte) string {
+	monthNames := [12]string{"JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"}
+
+	day := int((dateBytes[0] & 0xF8) >> 3)
+	month := int((dateBytes[0]&0x03)<<1) + int((dateBytes[1]&0x80)>>7)
+	monthName := monthNames[month]
+	year := int((dateBytes[1]&0x7E)>>1) + 1970
+
+	s := fmt.Sprintf("%02d-%s-%02d", day, monthName, year)
+
+	return s
+}
+
 func printDirectoryBlock(directoryBlock []byte) {
 	// parse and print 22 entries of 23 bytes each
 	for i := 0; i < 22; i++ {
@@ -263,7 +276,12 @@ func printDirectoryBlock(directoryBlock []byte) {
 				flags += " "
 			}
 
-			fmt.Printf("%-8s.%-3s    %s\n", name, extension, flags)
+			createDateBytes := directoryBlock[19:21]
+			createDate := dateToText(createDateBytes)
+			modifyDateBytes := directoryBlock[22:24]
+			modifyDate := dateToText(modifyDateBytes)
+
+			fmt.Printf("%-8s.%-3s    %s     %s    %s\n", name, extension, flags, createDate, modifyDate)
 		}
 	}
 }
