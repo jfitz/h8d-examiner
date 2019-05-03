@@ -240,7 +240,30 @@ func printDirectoryBlock(directoryBlock []byte) {
 			extensionBytes := entry[8:11]
 			name := string(trimSlice(nameBytes))
 			extension := string(trimSlice(extensionBytes))
-			fmt.Printf("%-8s.%-3s\n", name, extension)
+			flagByte := directoryBlock[14]
+			flags := ""
+			if flagByte&0200 == 0200 {
+				flags += "S"
+			} else {
+				flags += " "
+			}
+			if flagByte&0100 == 0100 {
+				flags += "L"
+			} else {
+				flags += " "
+			}
+			if flagByte&0040 == 0040 {
+				flags += "W"
+			} else {
+				flags += " "
+			}
+			if flagByte&0020 == 0020 {
+				flags += "C"
+			} else {
+				flags += " "
+			}
+
+			fmt.Printf("%-8s.%-3s    %s\n", name, extension, flags)
 		}
 	}
 }
