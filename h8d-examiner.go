@@ -242,7 +242,37 @@ func dateToText(dateBytes []byte) string {
 	return s
 }
 
-func printDirectoryBlock(directoryBlock []byte) {
+func flagsToText(flags byte) string {
+	text := ""
+
+	if (flags & 0200) == 0200 {
+		text += "S"
+	} else {
+		text += " "
+	}
+
+	if (flags & 0100) == 0100 {
+		text += "L"
+	} else {
+		text += " "
+	}
+
+	if (flags & 0040) == 0040 {
+		text += "W"
+	} else {
+		text += " "
+	}
+
+	if (flags & 0020) == 0020 {
+		text += "C"
+	} else {
+		text += " "
+	}
+
+	return text
+}
+
+func printDirectoryBlock(directoryBlock []byte, grtSector []byte) {
 	// parse and print 22 entries of 23 bytes each
 	for i := 0; i < 22; i++ {
 		start := i * 23
@@ -254,27 +284,7 @@ func printDirectoryBlock(directoryBlock []byte) {
 			name := string(trimSlice(nameBytes))
 			extension := string(trimSlice(extensionBytes))
 			flagByte := directoryBlock[14]
-			flags := ""
-			if flagByte&0200 == 0200 {
-				flags += "S"
-			} else {
-				flags += " "
-			}
-			if flagByte&0100 == 0100 {
-				flags += "L"
-			} else {
-				flags += " "
-			}
-			if flagByte&0040 == 0040 {
-				flags += "W"
-			} else {
-				flags += " "
-			}
-			if flagByte&0020 == 0020 {
-				flags += "C"
-			} else {
-				flags += " "
-			}
+			flags := flagsToText(flagByte)
 
 			createDateBytes := directoryBlock[19:21]
 			createDate := dateToText(createDateBytes)
@@ -368,6 +378,9 @@ func hdos(reader *bufio.Reader, fh *os.File) {
 			fmt.Printf("Label: %s\n", label)
 			fmt.Println()
 		} else if line == "cat" || line == "dir" {
+			grtSector, err := readSector(fh, grt)
+			checkAndExit(err)
+
 			// start with first directory sector
 			sectorIndex := dis
 
@@ -377,7 +390,7 @@ func hdos(reader *bufio.Reader, fh *os.File) {
 					fmt.Println(err.Error())
 				}
 
-				printDirectoryBlock(directoryBlock)
+				printDirectoryBlock(directoryBlock, grtSector)
 
 				// read 6 bytes
 				vectorBytes := directoryBlock[506:512]
