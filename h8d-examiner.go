@@ -272,6 +272,18 @@ func flagsToText(flags byte) string {
 	return text
 }
 
+func countSectors(grt []byte, firstCluster byte, clusterSize byte) int {
+	index := firstCluster
+
+	count := 0
+	for index != 0 {
+		count += 1
+		index = grt[index]
+	}
+
+	return count
+}
+
 func printDirectoryBlock(directoryBlock []byte, grtSector []byte) {
 	// parse and print 22 entries of 23 bytes each
 	for i := 0; i < 22; i++ {
@@ -283,15 +295,19 @@ func printDirectoryBlock(directoryBlock []byte, grtSector []byte) {
 			extensionBytes := entry[8:11]
 			name := string(trimSlice(nameBytes))
 			extension := string(trimSlice(extensionBytes))
-			flagByte := directoryBlock[14]
+			flagByte := entry[14]
 			flags := flagsToText(flagByte)
 
-			createDateBytes := directoryBlock[19:21]
+			createDateBytes := entry[19:21]
 			createDate := dateToText(createDateBytes)
-			modifyDateBytes := directoryBlock[22:24]
+			modifyDateBytes := entry[21:23]
 			modifyDate := dateToText(modifyDateBytes)
 
-			fmt.Printf("%-8s.%-3s    %s     %s    %s\n", name, extension, flags, createDate, modifyDate)
+			firstCluster := entry[16]
+			clusterSize := entry[13]
+			sectorCount := countSectors(grtSector, firstCluster, clusterSize)
+
+			fmt.Printf("%-8s.%-3s    %s     %s    %s   %d\n", name, extension, flags, createDate, modifyDate, sectorCount)
 		}
 	}
 }
