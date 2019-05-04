@@ -272,19 +272,23 @@ func flagsToText(flags byte) string {
 	return text
 }
 
-func countClusters(grt []byte, firstCluster byte) int {
+func getSectors(grt []byte, firstCluster byte, lastCluster byte, lastSector int, sectorsPerGroup int) []int {
+	sectors := []int{}
+
 	index := firstCluster
 
-	count := 0
 	for index != 0 {
+		for i := 0; i < sectorsPerGroup; i++ {
+			sector := int(index)*sectorsPerGroup + i
+			sectors = append(sectors, sector)
+		}
 		index = grt[index]
-		count += 1
 	}
 
-	return count
+	return sectors
 }
 
-func printDirectoryBlock(directoryBlock []byte, grtSector []byte, clusterSize int) {
+func printDirectoryBlock(directoryBlock []byte, grtSector []byte, sectorsPerGroup int) {
 	// parse and print 22 entries of 23 bytes each
 	for i := 0; i < 22; i++ {
 		start := i * 23
@@ -304,9 +308,10 @@ func printDirectoryBlock(directoryBlock []byte, grtSector []byte, clusterSize in
 			modifyDate := dateToText(modifyDateBytes)
 
 			firstCluster := entry[16]
-			clusterCount := countClusters(grtSector, firstCluster)
+			lastCluster := entry[17]
 			lastSector := int(entry[18])
-			sectorCount := (clusterCount-1)*clusterSize + lastSector
+			fileSectors := getSectors(grtSector, firstCluster, lastCluster, lastSector, sectorsPerGroup)
+			sectorCount := len(fileSectors)
 
 			fmt.Printf("%-8s.%-3s    %s     %s    %s   %d\n", name, extension, flags, createDate, modifyDate, sectorCount)
 		}
@@ -397,8 +402,8 @@ func hdos(reader *bufio.Reader, fh *os.File) {
 			fmt.Printf("Sectors per track: %d\n", spt)
 			fmt.Printf("Label: %s\n", label)
 
-			freeClusterCount := countClusters(grtSector, 0)
-			freeSectorCount := freeClusterCount * spg
+			freeSectors := getSectors(grtSector, 0, 0, spg, spg)
+			freeSectorCount := len(freeSectors)
 			fmt.Printf("Free sectors: %d\n", freeSectorCount)
 			fmt.Println()
 		} else if line == "cat" || line == "dir" {
