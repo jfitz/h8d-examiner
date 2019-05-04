@@ -318,10 +318,12 @@ func printDirectoryBlock(directoryBlock []byte, grtSector []byte, sectorsPerGrou
 			firstCluster := entry[16]
 			lastCluster := entry[17]
 			lastSector := int(entry[18])
-			fileSectors := getSectors(grtSector, firstCluster, lastCluster, lastSector, sectorsPerGroup)
-			sectorCount := len(fileSectors)
+			usedSectors := getSectors(grtSector, firstCluster, lastCluster, lastSector, sectorsPerGroup)
+			usedSectorCount := len(usedSectors)
+			allocSectors := getSectors(grtSector, firstCluster, lastCluster, sectorsPerGroup, sectorsPerGroup)
+			allocSectorCount := len(allocSectors)
 
-			fmt.Printf("%-8s.%-3s    %s     %s    %s   %d\n", name, extension, flags, createDate, modifyDate, sectorCount)
+			fmt.Printf("%-8s.%-3s    %s     %s    %s   %3d   %3d\n", name, extension, flags, createDate, modifyDate, usedSectorCount, allocSectorCount)
 		}
 	}
 }
@@ -415,6 +417,8 @@ func hdos(reader *bufio.Reader, fh *os.File) {
 			fmt.Printf("Free sectors: %d\n", freeSectorCount)
 			fmt.Println()
 		} else if line == "cat" || line == "dir" {
+			fmt.Println("Name            Flags    Created        Modified      Used  Allocated")
+
 			// start with first directory sector
 			sectorIndex := dis
 
