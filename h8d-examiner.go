@@ -276,13 +276,21 @@ func getSectors(grt []byte, firstCluster byte, lastCluster byte, lastSector int,
 	sectors := []int{}
 
 	index := firstCluster
+	max := sectorsPerGroup
 
-	for index != 0 {
-		for i := 0; i < sectorsPerGroup; i++ {
+	need_one := true
+	for index != 0 || need_one {
+		if index == lastCluster {
+			max = lastSector
+		}
+
+		for i := 0; i < max; i++ {
 			sector := int(index)*sectorsPerGroup + i
 			sectors = append(sectors, sector)
 		}
+
 		index = grt[index]
+		need_one = false
 	}
 
 	return sectors
