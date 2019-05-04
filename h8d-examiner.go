@@ -390,6 +390,28 @@ func (label HdosLabel) Print() {
 	fmt.Printf("Label: %s\n", label.Text)
 }
 
+func hdosDir(fh *os.File, hdosLabel HdosLabel, grtSector []byte) {
+	fmt.Println("Name            Flags    Created        Modified      Used  Allocated")
+
+	// start with first directory sector
+	sectorIndex := hdosLabel.Dis
+
+	for sectorIndex != 0 {
+		directoryBlock, err := readSectorPair(fh, sectorIndex)
+		if err != nil {
+			fmt.Println(err.Error())
+		}
+
+		printDirectoryBlock(directoryBlock, grtSector, hdosLabel.Spg)
+
+		// read 6 bytes
+		vectorBytes := directoryBlock[506:512]
+
+		// bytes [4] and [5] are index of next directory pair
+		sectorIndex = int(vectorBytes[4]) + int(vectorBytes[5])*256
+	}
+}
+
 func hdos(reader *bufio.Reader, fh *os.File) {
 	// read sector 9
 	sectorIndex := 9
@@ -439,25 +461,7 @@ func hdos(reader *bufio.Reader, fh *os.File) {
 			fmt.Printf("Free sectors: %d\n", freeSectorCount)
 			fmt.Println()
 		} else if line == "cat" || line == "dir" {
-			fmt.Println("Name            Flags    Created        Modified      Used  Allocated")
-
-			// start with first directory sector
-			sectorIndex := hdosLabel.Dis
-
-			for sectorIndex != 0 {
-				directoryBlock, err := readSectorPair(fh, sectorIndex)
-				if err != nil {
-					fmt.Println(err.Error())
-				}
-
-				printDirectoryBlock(directoryBlock, grtSector, hdosLabel.Spg)
-
-				// read 6 bytes
-				vectorBytes := directoryBlock[506:512]
-
-				// bytes [4] and [5] are index of next directory pair
-				sectorIndex = int(vectorBytes[4]) + int(vectorBytes[5])*256
-			}
+			hdosDir(fh, hdosLabel, grtSector)
 		} else if line == "type" {
 			fmt.Println("not implemented")
 		} else if line == "dump" {
