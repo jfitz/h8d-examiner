@@ -96,7 +96,6 @@ func dumpSector(fh *os.File, sectorIndex int, base string) error {
 	}
 
 	// display the sector
-	fmt.Println()
 
 	// print header information
 	if base == "hex" {
@@ -137,24 +136,22 @@ func dumpSector(fh *os.File, sectorIndex int, base string) error {
 	return nil
 }
 
-func displayHelp() {
+func mainHelp() {
 	fmt.Println("stats - display statistics")
 	fmt.Println("hdos  - interpret as HDOS disk")
 	fmt.Println("cp/m  - interpret as CP/M disk")
 	fmt.Println("quit  - exit the program")
-	fmt.Println("help  - print this message")
 }
 
-func displaySectorHelp() {
+func sectorHelp() {
 	fmt.Println("exit  - exit to main level")
 	fmt.Println("<RET> - dump next sector")
 	fmt.Println("nnn   - dump sector nnn")
 	fmt.Println("octal - show dump in octal")
 	fmt.Println("hex   - show dump in hex")
-	fmt.Println("help  - print this message")
 }
 
-func displayHdosHelp() {
+func hdosHelp() {
 	fmt.Println("stats - display statistics")
 	fmt.Println("cat   - list files on disk")
 	fmt.Println("dir   - same as CAT")
@@ -162,7 +159,6 @@ func displayHdosHelp() {
 	fmt.Println("dump  - dump contents of file")
 	fmt.Println("copy  - copy file to your filesystem")
 	fmt.Println("exit  - exit to main level")
-	fmt.Println("help  - print this message")
 }
 
 func sector(reader *bufio.Reader, fh *os.File) {
@@ -181,7 +177,8 @@ func sector(reader *bufio.Reader, fh *os.File) {
 	lastWasDump = true
 
 	// prompt for command and process it
-	for {
+	done := false
+	for !done {
 		// display prompt and read command
 		fmt.Printf("SECTOR> ")
 		line, err := reader.ReadString('\n')
@@ -191,7 +188,8 @@ func sector(reader *bufio.Reader, fh *os.File) {
 		line = strings.TrimSpace(line)
 
 		if line == "exit" {
-			return
+			fmt.Println()
+			done = true
 		} else if line == "" {
 			if lastWasDump {
 				sectorIndex += 1
@@ -223,7 +221,7 @@ func sector(reader *bufio.Reader, fh *os.File) {
 			fmt.Println()
 			lastWasDump = true
 		} else {
-			displaySectorHelp()
+			sectorHelp()
 			fmt.Println()
 		}
 	}
@@ -323,7 +321,7 @@ func printDirectoryBlock(directoryBlock []byte, grtSector []byte, sectorsPerGrou
 			allocSectors := getSectors(grtSector, firstCluster, lastCluster, sectorsPerGroup, sectorsPerGroup)
 			allocSectorCount := len(allocSectors)
 
-			fmt.Printf("%-8s.%-3s    %s     %s    %s   %3d   %3d\n", name, extension, flags, createDate, modifyDate, usedSectorCount, allocSectorCount)
+			fmt.Printf("%-8s.%-3s    %s     %s    %s   %4d   %4d\n", name, extension, flags, createDate, modifyDate, usedSectorCount, allocSectorCount)
 		}
 	}
 }
@@ -410,6 +408,8 @@ func hdosDir(fh *os.File, hdosLabel HdosLabel, grtSector []byte) {
 		// bytes [4] and [5] are index of next directory pair
 		sectorIndex = int(vectorBytes[4]) + int(vectorBytes[5])*256
 	}
+
+	fmt.Println()
 }
 
 func hdos(reader *bufio.Reader, fh *os.File) {
@@ -452,6 +452,7 @@ func hdos(reader *bufio.Reader, fh *os.File) {
 		line = strings.TrimSpace(line)
 
 		if line == "exit" {
+			fmt.Println()
 			done = true
 		} else if line == "stats" {
 			hdosLabel.Print()
@@ -468,11 +469,8 @@ func hdos(reader *bufio.Reader, fh *os.File) {
 			fmt.Println("not implemented")
 		} else if line == "copy" {
 			fmt.Println("not implemented")
-		} else if line == "help" {
-			displayHdosHelp()
-			fmt.Println()
 		} else {
-			displayHdosHelp()
+			hdosHelp()
 			fmt.Println()
 		}
 	}
@@ -521,6 +519,7 @@ func main() {
 		line = strings.TrimSpace(line)
 
 		if line == "quit" {
+			fmt.Println()
 			os.Exit(0)
 		} else if line == "stats" {
 			fmt.Printf("Image: %s\n", fileName)
@@ -528,16 +527,16 @@ func main() {
 			fmt.Printf("Last sector: %04XH (%d)\n", fileLastSector, fileLastSector)
 			fmt.Println()
 		} else if line == "sector" {
+			fmt.Println()
 			sector(reader, fh)
 		} else if line == "hdos" {
+			fmt.Println()
 			hdos(reader, fh)
 		} else if line == "cp/m" {
-			cpm(reader, fh)
-		} else if line == "help" {
-			displayHelp()
 			fmt.Println()
+			cpm(reader, fh)
 		} else {
-			displayHelp()
+			mainHelp()
 			fmt.Println()
 		}
 	}
