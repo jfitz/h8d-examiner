@@ -176,6 +176,12 @@ func sector(reader *bufio.Reader, fh *os.File) {
 	fmt.Println()
 	lastWasDump = true
 
+	fileInfo, err := fh.Stat()
+	fileSize := fileInfo.Size()
+	fileSizeInK := fileSize / 1024
+	fileSectorCount := fileSize / 256
+	fileLastSector := fileSectorCount - 1
+
 	// prompt for command and process it
 	done := false
 	for !done {
@@ -190,6 +196,10 @@ func sector(reader *bufio.Reader, fh *os.File) {
 		if line == "exit" {
 			fmt.Println()
 			done = true
+		} else if line == "stats" {
+			fmt.Printf("Size: %d (%dK)\n", fileSize, fileSizeInK)
+			fmt.Printf("Last sector: %04XH (%d)\n", fileLastSector, fileLastSector)
+			fmt.Println()
 		} else if line == "" {
 			if lastWasDump {
 				sectorIndex += 1
