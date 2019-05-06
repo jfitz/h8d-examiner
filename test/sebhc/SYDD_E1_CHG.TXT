@@ -1,0 +1,59 @@
+Corrections to transcription of SYDD rom source.
+
+It turns out that I used Peter's version of SYDD.ASM as my source.  I
+compiled ith source on my H89 and then compared the resultant .ABS
+file (after the 8 byte header) with the ROM installed in the machine.
+The comparison pointed out several mis-matches.  Some stemmed from 
+transcription errors, (MOV A,H instead of MOV A,M).  Others came from things
+like typing DS where EQU should have been, etc.
+
+Based on the SYDD.ASM source as downloaded on Sunday evening, August 30, the
+following corrections are needed.
+
+====================
+    DEFINITIONS:
+====================
+Directory entry format area:
+   After the line DIR.LGN DS  1 insert a line DIR.LSI DS  1.
+
+Active I/O area, the line AIO.DDA:
+	AIO.DDA DS	*-2
+ should read:
+	AIO.DDA EQU	*-2
+-------------------
+Device Driver Delayed load flags, the line S.DDGRP:
+	S.DDGRP	DS	2
+		DS	2
+ should read:
+	S.DDGRP DS	1
+		DS	1
+-------------------
+Same area, the line
+	S.DDOPC	DS	2
+ should read:
+	S.DDOPC	DS	1
+
+====================
+   ACTIVE CODE:
+====================
+Routine MEM3, second instruction should be  MOV A,M v. MOV A,H
+
+Routine $COMP, second instruction should be CMP M,  v. CMP H
+
+Routine $HLIHL, third instruction should be MOV H,M v. MOV H,L
+
+Routine $TJMP., third instruction should be CALL $DATA. v. CALL $DADA (needs
+	trailing '.')
+
+Routine LDO, 18th instruction (just after the Must dump (HL) comment
+	should be PUSH  D v. PUSH B
+
+Routine READ6, 16th instruction (just after the ERRNZ line)
+	should be JNE  READ2.4 v. JNE  READ2,4 ('dot' v. 'comma')
+
+Routine LPS2, third instruction should be JNZ LPS1 v. JNC LPS1
+
+Hope this is useful.
+
+Dan Emrick
+Sept. 1, 2009
