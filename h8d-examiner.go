@@ -496,13 +496,13 @@ func hdos(reader *bufio.Reader, fh *os.File) {
 }
 
 func cpmDir(fh *os.File, directory []byte) {
-	fmt.Println("Name          Extent Flags User")
+	fmt.Println("Name          Extent Flags User Records")
 
 	index := 0
-	entry_size := 32
+	entrySize := 32
 
 	for index < len(directory) {
-		end := index + entry_size
+		end := index + entrySize
 		entry := directory[index:end]
 
 		user := int(entry[0])
@@ -514,6 +514,8 @@ func cpmDir(fh *os.File, directory []byte) {
 			extensionBytes[2] = entry[11] & 0x7F
 
 			extent := int(entry[12])
+
+			recordCount := int(entry[15])
 
 			// extract flags from extension
 			flag1Bit := (entry[9] & 0x80) == 0x80
@@ -541,10 +543,10 @@ func cpmDir(fh *os.File, directory []byte) {
 				flags += " "
 			}
 
-			fmt.Printf("%-8s.%-3s    %2d    %s  %3d\n", name, extension, extent, flags, user)
+			fmt.Printf("%-8s.%-3s    %2d    %s  %3d    %4d\n", name, extension, extent, flags, user, recordCount)
 		}
 
-		index += entry_size
+		index += entrySize
 	}
 
 	fmt.Println()
