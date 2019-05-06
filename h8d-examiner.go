@@ -528,17 +528,17 @@ func cpmDir(fh *os.File, directory []byte) {
 
 			flags := ""
 			if flag1Bit {
-				flags += "1"
+				flags += "W"
 			} else {
 				flags += " "
 			}
 			if flag2Bit {
-				flags += "2"
+				flags += "S"
 			} else {
 				flags += " "
 			}
 			if flag3Bit {
-				flags += "3"
+				flags += "A"
 			} else {
 				flags += " "
 			}
