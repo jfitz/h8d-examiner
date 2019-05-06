@@ -161,6 +161,15 @@ func hdosHelp() {
 	fmt.Println("exit  - exit to main level")
 }
 
+func cpmHelp() {
+	fmt.Println("stats - display statistics")
+	fmt.Println("dir   - list files on disk")
+	fmt.Println("type  - display contents of file")
+	fmt.Println("dump  - dump contents of file")
+	fmt.Println("copy  - copy file to your filesystem")
+	fmt.Println("exit  - exit to main level")
+}
+
 func sector(reader *bufio.Reader, fh *os.File) {
 	// set default values
 	base := "hex"
@@ -486,8 +495,108 @@ func hdos(reader *bufio.Reader, fh *os.File) {
 	}
 }
 
+func cpmDir(fh *os.File, directory []byte) {
+	fmt.Println("Name          Extent Flags User")
+
+	index := 0
+	entry_size := 32
+
+	for index < len(directory) {
+		end := index + entry_size
+		entry := directory[index:end]
+
+		user := int(entry[0])
+		nameBytes := entry[1:9]
+		if nameBytes[0] >= 32 && nameBytes[0] <= 126 {
+			extensionBytes := [3]byte{}
+			extensionBytes[0] = entry[9] & 0x7F
+			extensionBytes[1] = entry[10] & 0x7F
+			extensionBytes[2] = entry[11] & 0x7F
+
+			extent := int(entry[12])
+
+			// extract flags from extension
+			flag1Bit := (entry[9] & 0x80) == 0x80
+			flag2Bit := (entry[10] & 0x80) == 0x80
+			flag3Bit := (entry[11] & 0x80) == 0x80
+
+			// convert bytes to strings
+			name := string(trimSlice(nameBytes))
+			extension := string(trimSlice(extensionBytes[:]))
+
+			flags := ""
+			if flag1Bit {
+				flags += "1"
+			} else {
+				flags += " "
+			}
+			if flag2Bit {
+				flags += "2"
+			} else {
+				flags += " "
+			}
+			if flag3Bit {
+				flags += "3"
+			} else {
+				flags += " "
+			}
+
+			fmt.Printf("%-8s.%-3s    %2d    %s  %3d\n", name, extension, extent, flags, user)
+		}
+
+		index += entry_size
+	}
+
+	fmt.Println()
+}
+
 func cpm(reader *bufio.Reader, fh *os.File) {
-	fmt.Println("not implemented")
+	// read sector 30 and 34
+	sectorIndex := 30
+	sector1, err := readSector(fh, sectorIndex)
+	if err != nil {
+		fmt.Println("Cannot read sector 30")
+		return
+	}
+
+	sectorIndex = 34
+	sector2, err := readSector(fh, sectorIndex)
+	if err != nil {
+		fmt.Println("Cannot read sector 34")
+		return
+	}
+
+	directory := append(sector1, sector2...)
+
+	// prompt for command and process it
+	done := false
+	for !done {
+		// display prompt and read command
+		fmt.Printf("CP/M> ")
+		line, err := reader.ReadString('\n')
+		checkAndExit(err)
+
+		// process the command
+		line = strings.TrimSpace(line)
+
+		if line == "exit" {
+			fmt.Println()
+			done = true
+		} else if line == "stats" {
+			fmt.Println("not implemented")
+		} else if line == "dir" {
+			cpmDir(fh, directory)
+		} else if line == "type" {
+			fmt.Println("not implemented")
+		} else if line == "dump" {
+			fmt.Println("not implemented")
+		} else if line == "copy" {
+			fmt.Println("not implemented")
+		} else {
+			cpmHelp()
+			fmt.Println()
+		}
+	}
 }
 
 func main() {
