@@ -495,6 +495,39 @@ func hdos(reader *bufio.Reader, fh *os.File) {
 	}
 }
 
+func cpmTrackAndSector(block int, recordCount int) string {
+	base := 30
+	sectorsPerMap := 20
+	recordsPerSector := 2
+
+	sectorMap := [][]int{
+		{0, 4, 8, 2},
+		{6, 1, 5, 9},
+		{3, 7, 10, 14},
+		{18, 12, 16, 11},
+		{15, 19, 13, 17},
+	}
+
+	index := block % 5
+	sectors := sectorMap[index]
+
+	s := ""
+
+	for _, sector := range sectors {
+		if recordCount > 0 {
+			track := (block / 5 * sectorsPerMap) + base
+
+			address := sector + track
+
+			s += fmt.Sprintf(" %d", address)
+
+			recordCount -= recordsPerSector
+		}
+	}
+
+	return s
+}
+
 func cpmDir(fh *os.File, directory []byte) {
 	fmt.Println("Name          Extent Flags User Records")
 
@@ -517,7 +550,11 @@ func cpmDir(fh *os.File, directory []byte) {
 
 			recordCount := int(entry[15])
 
-			allocations := trimSlice(entry[16:24])
+			allocationBytes := trimSlice(entry[16:32])
+			blocks := []int{}
+			for _, b := range allocationBytes {
+				blocks = append(blocks, int(b))
+			}
 
 			// extract flags from extension
 			flag1Bit := (entry[9] & 0x80) == 0x80
@@ -547,13 +584,15 @@ func cpmDir(fh *os.File, directory []byte) {
 
 			fmt.Printf("%-8s.%-3s    %2d    %s  %3d    %4d", name, extension, extent, flags, user, recordCount)
 
-			for i, a := range allocations {
-				sectors := "10:1 10;9 40:0 40:9"
+			for i, block := range blocks {
+				sectors := cpmTrackAndSector(block, recordCount)
 
 				if i%4 == 0 {
 					fmt.Println()
 				}
-				fmt.Printf(" %02X (%s)", a, sectors)
+				fmt.Printf(" %02X (%s)", block, sectors)
+
+				recordCount -= 8
 			}
 
 			fmt.Println()
