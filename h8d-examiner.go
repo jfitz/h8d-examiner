@@ -517,6 +517,8 @@ func cpmDir(fh *os.File, directory []byte) {
 
 			recordCount := int(entry[15])
 
+			allocations := trimSlice(entry[16:24])
+
 			// extract flags from extension
 			flag1Bit := (entry[9] & 0x80) == 0x80
 			flag2Bit := (entry[10] & 0x80) == 0x80
@@ -543,7 +545,18 @@ func cpmDir(fh *os.File, directory []byte) {
 				flags += " "
 			}
 
-			fmt.Printf("%-8s.%-3s    %2d    %s  %3d    %4d\n", name, extension, extent, flags, user, recordCount)
+			fmt.Printf("%-8s.%-3s    %2d    %s  %3d    %4d", name, extension, extent, flags, user, recordCount)
+
+			for i, a := range allocations {
+				sectors := "10:1 10;9 40:0 40:9"
+
+				if i%4 == 0 {
+					fmt.Println()
+				}
+				fmt.Printf(" %02X (%s)", a, sectors)
+			}
+
+			fmt.Println()
 		}
 
 		index += entrySize
