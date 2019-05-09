@@ -508,6 +508,23 @@ func cpmRecords(block int, dirBase int) []int {
 	return recordMap[index]
 }
 
+type SectorAndOffset struct {
+	Sector int
+	Offset int
+}
+
+func (sectorAndOffset SectorAndOffset) to_string() string {
+	return fmt.Sprintf("%d:%d", sectorAndOffset.Sector, sectorAndOffset.Offset)
+}
+
+func cpmRecordToSectorAndOffset(record int) SectorAndOffset {
+	sector := record / 2
+	offset := record % 2
+	sectorAndOffset := SectorAndOffset{sector, offset}
+
+	return sectorAndOffset
+}
+
 func cpmDir(fh *os.File, directory []byte) {
 	fmt.Println("Name          Extent Flags User Records")
 
@@ -575,7 +592,8 @@ func cpmDir(fh *os.File, directory []byte) {
 			fmt.Printf(" Blocks: % 02X\n", blocks)
 
 			for _, record := range records {
-				fmt.Printf(" %02d", record)
+				sectorAndOffset := cpmRecordToSectorAndOffset(record)
+				fmt.Printf("%s ", sectorAndOffset.to_string())
 			}
 			fmt.Println()
 
