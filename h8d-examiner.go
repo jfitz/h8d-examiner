@@ -508,19 +508,6 @@ func cpmRecords(block int, dirBase int) []int {
 	return recordMap[index]
 }
 
-func cpmTrackAndSector(block int, dirBase int) []int {
-	sectorMap := [][]int{
-		{0, 4, 8, 2},
-		{6, 1, 5, 9},
-		{3, 7, 10, 14},
-		{18, 12, 16, 11},
-		{15, 19, 13, 17},
-	}
-
-	index := block % 5
-	return sectorMap[index]
-}
-
 func cpmDir(fh *os.File, directory []byte) {
 	fmt.Println("Name          Extent Flags User Records")
 
@@ -577,25 +564,20 @@ func cpmDir(fh *os.File, directory []byte) {
 
 			fmt.Printf("%-8s.%-3s    %2d    %s  %3d    %4d", name, extension, extent, flags, user, recordCount)
 
-			for i, block := range blocks {
-				sectors := cpmTrackAndSector(block, 30)
-
-				if i%4 == 0 {
-					fmt.Println()
-				}
-				fmt.Printf(" %02X (% 02X)", block, sectors)
+			records := []int{}
+			for _, block := range blocks {
+				blockRecords := cpmRecords(block, 60)
+				records = append(records, blockRecords...)
 			}
 
+			records = records[:recordCount]
+
+			fmt.Printf(" Blocks: % 02X\n", blocks)
+
+			for _, record := range records {
+				fmt.Printf(" %02d", record)
+			}
 			fmt.Println()
-
-			for i, block := range blocks {
-				records := cpmRecords(block, 60)
-
-				if i%4 == 0 {
-					fmt.Println()
-				}
-				fmt.Printf(" %02X (% 02X)", block, records)
-			}
 
 			fmt.Println()
 		}
