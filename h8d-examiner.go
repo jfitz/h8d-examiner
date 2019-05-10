@@ -140,6 +140,7 @@ func mainHelp() {
 	fmt.Println("stats - display statistics")
 	fmt.Println("hdos  - interpret as HDOS disk")
 	fmt.Println("cp/m  - interpret as CP/M disk")
+	fmt.Println("RESETTERM - reset VT-100 terminal")
 	fmt.Println("quit  - exit the program")
 }
 
@@ -785,6 +786,8 @@ func main() {
 		} else if line == "cp/m" {
 			fmt.Println()
 			cpm(reader, fh)
+		} else if line == "RESETTERM" {
+			fmt.Println("\x1bc")
 		} else {
 			mainHelp()
 			fmt.Println()
