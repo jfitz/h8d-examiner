@@ -313,7 +313,7 @@ func getSectors(grt []byte, firstCluster byte, lastCluster byte, lastSector int,
 	return sectors
 }
 
-func printDirectoryBlock(directoryBlock []byte, grtSector []byte, sectorsPerGroup int) {
+func printHdosDirectoryBlock(directoryBlock []byte, grtSector []byte, sectorsPerGroup int) {
 	// parse and print 22 entries of 23 bytes each
 	for i := 0; i < 22; i++ {
 		start := i * 23
@@ -343,6 +343,33 @@ func printDirectoryBlock(directoryBlock []byte, grtSector []byte, sectorsPerGrou
 			fmt.Printf("%-8s.%-3s    %s     %s    %s   %4d   %4d\n", name, extension, flags, createDate, modifyDate, usedSectorCount, allocSectorCount)
 		}
 	}
+}
+
+func getHdosFileSectors(wantedName string, directoryBlock []byte, grtSector []byte, sectorsPerGroup int) ([]int, bool) {
+	// parse and print 22 entries of 23 bytes each
+	for i := 0; i < 22; i++ {
+		start := i * 23
+		end := start + 23
+		entry := directoryBlock[start:end]
+		nameBytes := entry[0:8]
+		if nameBytes[0] < 0xfe {
+			extensionBytes := entry[8:11]
+			name := string(trimSlice(nameBytes))
+			extension := string(trimSlice(extensionBytes))
+
+			firstCluster := entry[16]
+			lastCluster := entry[17]
+			lastSector := int(entry[18])
+			usedSectors := getSectors(grtSector, firstCluster, lastCluster, lastSector, sectorsPerGroup)
+
+			filename := name + "." + extension
+			if filename == wantedName {
+				return usedSectors, true
+			}
+		}
+	}
+
+	return []int{}, false
 }
 
 type HdosLabel struct {
@@ -419,13 +446,60 @@ func hdosDir(fh *os.File, hdosLabel HdosLabel, grtSector []byte) {
 			fmt.Println(err.Error())
 		}
 
-		printDirectoryBlock(directoryBlock, grtSector, hdosLabel.Spg)
+		printHdosDirectoryBlock(directoryBlock, grtSector, hdosLabel.Spg)
 
 		// read 6 bytes
 		vectorBytes := directoryBlock[506:512]
 
 		// bytes [4] and [5] are index of next directory pair
 		sectorIndex = int(vectorBytes[4]) + int(vectorBytes[5])*256
+	}
+
+	fmt.Println()
+}
+
+func hdosFileSectors(fh *os.File, hdosLabel HdosLabel, grtSector []byte, wantedFilename string) ([]int, bool) {
+	// start with first directory sector
+	sectorIndex := hdosLabel.Dis
+
+	fileSectors := []int{}
+
+	found := false
+
+	for sectorIndex != 0 && !found {
+		directoryBlock, err := readSectorPair(fh, sectorIndex)
+		if err != nil {
+			fmt.Println(err.Error())
+		}
+
+		fileSectors, found = getHdosFileSectors(wantedFilename, directoryBlock, grtSector, hdosLabel.Spg)
+
+		// read 6 bytes
+		vectorBytes := directoryBlock[506:512]
+
+		// bytes [4] and [5] are index of next directory pair
+		sectorIndex = int(vectorBytes[4]) + int(vectorBytes[5])*256
+	}
+
+	return fileSectors, found
+}
+
+func hdosType(fh *os.File, hdosLabel HdosLabel, grtSector []byte, filename string) {
+	sectors, found := hdosFileSectors(fh, hdosLabel, grtSector, filename)
+
+	if found {
+		// for each sector
+		for _, sector := range sectors {
+			sectorBytes, err := readSector(fh, sector)
+			if err != nil {
+				fmt.Println("Count not read sector")
+			} else {
+				text := string(sectorBytes)
+				fmt.Print(text)
+			}
+		}
+	} else {
+		fmt.Println("File not found")
 	}
 
 	fmt.Println()
@@ -469,24 +543,25 @@ func hdos(reader *bufio.Reader, fh *os.File) {
 
 		// process the command
 		line = strings.TrimSpace(line)
+		parts := strings.Split(line, " ")
 
-		if line == "exit" {
+		if parts[0] == "exit" {
 			fmt.Println()
 			done = true
-		} else if line == "stats" {
+		} else if parts[0] == "stats" {
 			hdosLabel.Print()
 
 			freeSectors := getSectors(grtSector, 0, 0, hdosLabel.Spg, hdosLabel.Spg)
 			freeSectorCount := len(freeSectors)
 			fmt.Printf("Free sectors: %d\n", freeSectorCount)
 			fmt.Println()
-		} else if line == "cat" || line == "dir" {
+		} else if parts[0] == "cat" || parts[0] == "dir" {
 			hdosDir(fh, hdosLabel, grtSector)
-		} else if line == "type" {
+		} else if parts[0] == "type" && len(parts) == 2 {
+			hdosType(fh, hdosLabel, grtSector, parts[1])
+		} else if parts[0] == "dump" {
 			fmt.Println("not implemented")
-		} else if line == "dump" {
-			fmt.Println("not implemented")
-		} else if line == "copy" {
+		} else if parts[0] == "copy" {
 			fmt.Println("not implemented")
 		} else {
 			hdosHelp()
