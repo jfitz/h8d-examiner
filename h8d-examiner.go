@@ -5,24 +5,16 @@ package main
 
 import (
 	"bufio"
-	"bytes"
-	"errors"
 	"flag"
 	"fmt"
 	"github.com/jfitz/h8d-examiner/cpm"
 	"github.com/jfitz/h8d-examiner/hdos"
+	"github.com/jfitz/h8d-examiner/utils"
 	"os"
 	"regexp"
 	"strconv"
 	"strings"
 )
-
-func checkAndExit(e error) {
-	if e != nil {
-		fmt.Println(e.Error())
-		os.Exit(1)
-	}
-}
 
 func dumpOctal(bytes []byte) {
 	for _, b := range bytes {
@@ -40,42 +32,8 @@ func dumpAscii(bytes []byte) {
 	}
 }
 
-func trimSlice(slice []byte) []byte {
-	n := bytes.IndexByte(slice, byte(0))
-
-	if n > -1 {
-		slice = slice[:n]
-	}
-
-	return slice
-}
-
-func readSector(fh *os.File, sectorIndex int) ([]byte, error) {
-	sector := make([]byte, 256)
-
-	// position at the desired sector
-	pos := int64(sectorIndex) * 256
-
-	_, err := fh.Seek(pos, 0)
-	if err != nil {
-		return sector, errors.New("Sector does not exist")
-	}
-
-	// read the sector
-	_, err = fh.Read(sector)
-	if err != nil {
-		return sector, err
-	}
-
-	if len(sector) != 256 {
-		return sector, errors.New("Invalid sector length")
-	}
-
-	return sector, nil
-}
-
 func dumpSector(fh *os.File, sectorIndex int, base string) error {
-	sector, err := readSector(fh, sectorIndex)
+	sector, err := utils.ReadSector(fh, sectorIndex)
 	if err != nil {
 		return err
 	}
@@ -144,11 +102,11 @@ func sector(reader *bufio.Reader, fh *os.File) {
 	lastWasDump := false
 
 	numberPattern, err := regexp.Compile("^\\d+$")
-	checkAndExit(err)
+	utils.CheckAndExit(err)
 
 	// display the first sector
 	err = dumpSector(fh, sectorIndex, base)
-	checkAndExit(err)
+	utils.CheckAndExit(err)
 	fmt.Println()
 	lastWasDump = true
 
@@ -164,7 +122,7 @@ func sector(reader *bufio.Reader, fh *os.File) {
 		// display prompt and read command
 		fmt.Printf("SECTOR> ")
 		line, err := reader.ReadString('\n')
-		checkAndExit(err)
+		utils.CheckAndExit(err)
 
 		// process the command
 		line = strings.TrimSpace(line)
@@ -182,28 +140,28 @@ func sector(reader *bufio.Reader, fh *os.File) {
 			}
 
 			err = dumpSector(fh, sectorIndex, base)
-			checkAndExit(err)
+			utils.CheckAndExit(err)
 			fmt.Println()
 			lastWasDump = true
 		} else if numberPattern.MatchString(line) {
 			sectorIndex, _ = strconv.Atoi(line)
 
 			err = dumpSector(fh, sectorIndex, base)
-			checkAndExit(err)
+			utils.CheckAndExit(err)
 			fmt.Println()
 			lastWasDump = true
 		} else if line == "octal" {
 			base = "octal"
 
 			err = dumpSector(fh, sectorIndex, base)
-			checkAndExit(err)
+			utils.CheckAndExit(err)
 			fmt.Println()
 			lastWasDump = true
 		} else if line == "hex" {
 			base = "hex"
 
 			err = dumpSector(fh, sectorIndex, base)
-			checkAndExit(err)
+			utils.CheckAndExit(err)
 			fmt.Println()
 			lastWasDump = true
 		} else {
@@ -230,7 +188,7 @@ func main() {
 
 	// open the file
 	fh, err := os.Open(fileName)
-	checkAndExit(err)
+	utils.CheckAndExit(err)
 
 	defer fh.Close()
 
@@ -246,7 +204,7 @@ func main() {
 		// display prompt and read command
 		fmt.Printf("> ")
 		line, err := reader.ReadString('\n')
-		checkAndExit(err)
+		utils.CheckAndExit(err)
 
 		// process the command
 		line = strings.TrimSpace(line)
