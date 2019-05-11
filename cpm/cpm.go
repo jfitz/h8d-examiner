@@ -137,7 +137,7 @@ func recordsToText(records []int) string {
 
 // print detailed catalog from directory
 func cpmCat(fh *os.File, directory []byte) {
-	fmt.Println("Name          Extent Flags         User Records")
+	fmt.Println("User Name          Extent Flags         Records")
 
 	index := 0
 	entrySize := 32
@@ -148,40 +148,59 @@ func cpmCat(fh *os.File, directory []byte) {
 		entry := directory[index:end]
 
 		user := int(entry[0])
-		nameBytes := entry[1:9]
-		if nameBytes[0] >= 32 && nameBytes[0] <= 126 {
+
+		// todo: user 0-31 else print alternate format
+		// todo: entry outside 32-126 print alternate format
+		if entry[1] >= 32 && entry[1] <= 126 {
+			// normal directory entry
+
+			nameBytes := stripHighBit(entry[1:9])
+			name := string(utils.TrimSlice(nameBytes))
+
 			extensionBytes := stripHighBit(entry[9:12])
+			extension := string(utils.TrimSlice(extensionBytes))
 
 			extent := int(entry[12])
 
 			recordCount := int(entry[15])
 
+			// extract flags from extension and name
+			name_flags := getHighBit(entry[1:9])
+			extension_flags := getHighBit(entry[9:12])
+
+			// convert bytes to strings
+			flags := flagsToText(extension_flags) + specialFlagsToText(name_flags)
+
+			// print the information
+			fmt.Printf("%3d  %-8s.%-3s    %2d    %s    %4d", user, name, extension, extent, flags, recordCount)
+
+			// diag: print blocks
 			allocationBytes := utils.TrimSlice(entry[16:32])
 			blocks := []int{}
 			for _, b := range allocationBytes {
 				blocks = append(blocks, int(b))
 			}
 
-			// extract flags from extension and name
-			extension_flags := getHighBit(entry[9:12])
-			name_flags := getHighBit(nameBytes)
-
-			// convert bytes to strings
-			name := string(utils.TrimSlice(stripHighBit(nameBytes)))
-			extension := string(utils.TrimSlice(extensionBytes))
-
-			flags := flagsToText(extension_flags) + specialFlagsToText(name_flags)
-
-			fmt.Printf("%-8s.%-3s    %2d    %s  %3d    %4d", name, extension, extent, flags, user, recordCount)
-
-			records := allRecords(blocks, directoryFirstRecord, recordCount)
-
 			fmt.Printf(" Blocks: % 02X\n", blocks)
+
+			// diag: print record numbers
+			records := allRecords(blocks, directoryFirstRecord, recordCount)
 
 			text := recordsToText(records)
 			fmt.Println(text)
 
 			fmt.Println()
+		} else {
+			// strange directory entry - probably empty or deleted
+
+			nameBytes := stripHighBit(entry[1:9])
+			name := string(utils.TrimSlice(nameBytes))
+
+			extensionBytes := stripHighBit(entry[9:12])
+			extension := string(utils.TrimSlice(extensionBytes))
+
+			// print the information
+			fmt.Printf("%3d  %-8s.%-3s", user, name, extension)
 		}
 
 		index += entrySize
