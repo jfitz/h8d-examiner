@@ -111,12 +111,37 @@ func specialFlagsToText(flags []bool) string {
 	return text
 }
 
+func allRecords(blocks []int, directoryFirstRecord int, recordCount int) []int {
+	records := []int{}
+
+	for _, block := range blocks {
+		blockRecords := cpmRecords(block, directoryFirstRecord)
+		records = append(records, blockRecords...)
+	}
+
+	records = records[:recordCount]
+
+	return records
+}
+
+func recordsToText(records []int) string {
+	text := ""
+
+	for _, record := range records {
+		sectorAndOffset := cpmRecordToSectorAndOffset(record)
+		text += fmt.Sprintf("%s ", sectorAndOffset.to_string())
+	}
+
+	return text
+}
+
 // print detailed catalog from directory
 func cpmCat(fh *os.File, directory []byte) {
 	fmt.Println("Name          Extent Flags         User Records")
 
 	index := 0
 	entrySize := 32
+	directoryFirstRecord := 60
 
 	for index < len(directory) {
 		end := index + entrySize
@@ -149,21 +174,12 @@ func cpmCat(fh *os.File, directory []byte) {
 
 			fmt.Printf("%-8s.%-3s    %2d    %s  %3d    %4d", name, extension, extent, flags, user, recordCount)
 
-			records := []int{}
-			for _, block := range blocks {
-				blockRecords := cpmRecords(block, 60)
-				records = append(records, blockRecords...)
-			}
-
-			records = records[:recordCount]
+			records := allRecords(blocks, directoryFirstRecord, recordCount)
 
 			fmt.Printf(" Blocks: % 02X\n", blocks)
 
-			for _, record := range records {
-				sectorAndOffset := cpmRecordToSectorAndOffset(record)
-				fmt.Printf("%s ", sectorAndOffset.to_string())
-			}
-			fmt.Println()
+			text := recordsToText(records)
+			fmt.Println(text)
 
 			fmt.Println()
 		}
