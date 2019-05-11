@@ -135,6 +135,49 @@ func recordsToText(records []int) string {
 	return text
 }
 
+// normal directory entry
+func entryToText(entry []byte) string {
+	user := int(entry[0])
+
+	nameBytes := stripHighBit(entry[1:9])
+	name := string(utils.TrimSlice(nameBytes))
+
+	extensionBytes := stripHighBit(entry[9:12])
+	extension := string(utils.TrimSlice(extensionBytes))
+
+	extent := int(entry[12])
+
+	recordCount := int(entry[15])
+
+	// extract flags from extension and name
+	name_flags := getHighBit(entry[1:9])
+	extension_flags := getHighBit(entry[9:12])
+
+	// convert bytes to strings
+	flags := flagsToText(extension_flags) + specialFlagsToText(name_flags)
+
+	// print the information
+	text := fmt.Sprintf("%3d  %-8s.%-3s    %2d    %s    %4d", user, name, extension, extent, flags, recordCount)
+
+	return text
+}
+
+// strange directory entry - probably empty or deleted
+func deletedEntryToText(entry []byte) string {
+	user := int(entry[0])
+
+	nameBytes := stripHighBit(entry[1:9])
+	name := string(utils.TrimSlice(nameBytes))
+
+	extensionBytes := stripHighBit(entry[9:12])
+	extension := string(utils.TrimSlice(extensionBytes))
+
+	// print the information
+	text := fmt.Sprintf("%3d  %-8s.%-3s", user, name, extension)
+
+	return text
+}
+
 // print detailed catalog from directory
 func cpmCat(fh *os.File, directory []byte) {
 	fmt.Println("User Name          Extent Flags         Records")
@@ -147,32 +190,13 @@ func cpmCat(fh *os.File, directory []byte) {
 		end := index + entrySize
 		entry := directory[index:end]
 
-		user := int(entry[0])
+		// user := int(entry[0])
 
 		// todo: user 0-31 else print alternate format
 		// todo: entry outside 32-126 print alternate format
 		if entry[1] >= 32 && entry[1] <= 126 {
-			// normal directory entry
-
-			nameBytes := stripHighBit(entry[1:9])
-			name := string(utils.TrimSlice(nameBytes))
-
-			extensionBytes := stripHighBit(entry[9:12])
-			extension := string(utils.TrimSlice(extensionBytes))
-
-			extent := int(entry[12])
-
-			recordCount := int(entry[15])
-
-			// extract flags from extension and name
-			name_flags := getHighBit(entry[1:9])
-			extension_flags := getHighBit(entry[9:12])
-
-			// convert bytes to strings
-			flags := flagsToText(extension_flags) + specialFlagsToText(name_flags)
-
-			// print the information
-			fmt.Printf("%3d  %-8s.%-3s    %2d    %s    %4d", user, name, extension, extent, flags, recordCount)
+			text := entryToText(entry)
+			fmt.Println(text)
 
 			// diag: print blocks
 			allocationBytes := utils.TrimSlice(entry[16:32])
@@ -184,23 +208,16 @@ func cpmCat(fh *os.File, directory []byte) {
 			fmt.Printf(" Blocks: % 02X\n", blocks)
 
 			// diag: print record numbers
+			recordCount := int(entry[15])
 			records := allRecords(blocks, directoryFirstRecord, recordCount)
 
-			text := recordsToText(records)
-			fmt.Println(text)
+			recordText := recordsToText(records)
+			fmt.Println(recordText)
 
 			fmt.Println()
 		} else {
-			// strange directory entry - probably empty or deleted
-
-			nameBytes := stripHighBit(entry[1:9])
-			name := string(utils.TrimSlice(nameBytes))
-
-			extensionBytes := stripHighBit(entry[9:12])
-			extension := string(utils.TrimSlice(extensionBytes))
-
-			// print the information
-			fmt.Printf("%3d  %-8s.%-3s", user, name, extension)
+			text := deletedEntryToText(entry)
+			fmt.Println(text)
 		}
 
 		index += entrySize
