@@ -52,8 +52,7 @@ func cpmRecordToSectorAndOffset(record int) SectorAndOffset {
 }
 
 func stripHighBit(bs []byte) []byte {
-	length := len(bs)
-	result := make([]byte, length)
+	result := make([]byte, len(bs))
 
 	for i, b := range bs {
 		result[i] = b & 0x7F
@@ -62,9 +61,19 @@ func stripHighBit(bs []byte) []byte {
 	return result
 }
 
+func getHighBit(bs []byte) []bool {
+	result := make([]bool, len(bs))
+
+	for i, b := range bs {
+		result[i] = (b & 0x80) == 0x80
+	}
+
+	return result
+}
+
 // print detailed catalog from directory
 func cpmCat(fh *os.File, directory []byte) {
-	fmt.Println("Name          Extent Flags User Records")
+	fmt.Println("Name          Extent Flags         User Records")
 
 	index := 0
 	entrySize := 32
@@ -88,30 +97,39 @@ func cpmCat(fh *os.File, directory []byte) {
 				blocks = append(blocks, int(b))
 			}
 
-			// extract flags from extension
-			flag1Bit := (entry[9] & 0x80) == 0x80
-			flag2Bit := (entry[10] & 0x80) == 0x80
-			flag3Bit := (entry[11] & 0x80) == 0x80
+			// extract flags from extension and name
+			extension_flags := getHighBit(entry[9:12])
+			name_flags := getHighBit(nameBytes)
 
 			// convert bytes to strings
 			name := string(utils.TrimSlice(stripHighBit(nameBytes)))
 			extension := string(utils.TrimSlice(extensionBytes))
 
+			// convert extension flags (the 'normal' ones) to text
 			flags := ""
-			if flag1Bit {
+			if extension_flags[0] {
 				flags += "W"
 			} else {
 				flags += " "
 			}
-			if flag2Bit {
+			if extension_flags[1] {
 				flags += "S"
 			} else {
 				flags += " "
 			}
-			if flag3Bit {
+			if extension_flags[2] {
 				flags += "A"
 			} else {
 				flags += " "
+			}
+
+			// convert name flags to text
+			for i := 0; i < 8; i++ {
+				if name_flags[i] {
+					flags += fmt.Sprintf("%d", i+1)
+				} else {
+					flags += " "
+				}
 			}
 
 			fmt.Printf("%-8s.%-3s    %2d    %s  %3d    %4d", name, extension, extent, flags, user, recordCount)
