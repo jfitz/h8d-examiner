@@ -13,6 +13,7 @@ import (
 
 func help() {
 	fmt.Println("stats - display statistics")
+	fmt.Println("cat   - list directory entries and details")
 	fmt.Println("dir   - list files on disk")
 	fmt.Println("type  - display contents of file")
 	fmt.Println("dump  - dump contents of file")
@@ -50,7 +51,19 @@ func cpmRecordToSectorAndOffset(record int) SectorAndOffset {
 	return sectorAndOffset
 }
 
-func cpmDir(fh *os.File, directory []byte) {
+func stripHighBit(bs []byte) []byte {
+	length := len(bs)
+	result := make([]byte, length)
+
+	for i, b := range bs {
+		result[i] = b & 0x7F
+	}
+
+	return result
+}
+
+// print detailed catalog from directory
+func cpmCat(fh *os.File, directory []byte) {
 	fmt.Println("Name          Extent Flags User Records")
 
 	index := 0
@@ -63,10 +76,7 @@ func cpmDir(fh *os.File, directory []byte) {
 		user := int(entry[0])
 		nameBytes := entry[1:9]
 		if nameBytes[0] >= 32 && nameBytes[0] <= 126 {
-			extensionBytes := [3]byte{}
-			extensionBytes[0] = entry[9] & 0x7F
-			extensionBytes[1] = entry[10] & 0x7F
-			extensionBytes[2] = entry[11] & 0x7F
+			extensionBytes := stripHighBit(entry[9:12])
 
 			extent := int(entry[12])
 
@@ -84,8 +94,8 @@ func cpmDir(fh *os.File, directory []byte) {
 			flag3Bit := (entry[11] & 0x80) == 0x80
 
 			// convert bytes to strings
-			name := string(utils.TrimSlice(nameBytes))
-			extension := string(utils.TrimSlice(extensionBytes[:]))
+			name := string(utils.TrimSlice(stripHighBit(nameBytes)))
+			extension := string(utils.TrimSlice(extensionBytes))
 
 			flags := ""
 			if flag1Bit {
@@ -131,6 +141,24 @@ func cpmDir(fh *os.File, directory []byte) {
 	fmt.Println()
 }
 
+// print file-oriented directory (one line per file, not per entry)
+func cpmDir(fh *os.File, directory []byte) {
+	fmt.Println("Name          Extent Flags User Records")
+
+	// for each user (0 to 31)
+	for user := 0; user < 32; user++ {
+		// get list of all file names with no repeats (strip flags)
+		// if any
+		// for each file
+		// get all allocation blocks in order
+		// convert allocation blocks to CP/M records
+		// convert records to sector-offset pairs
+		// print user, file name, and sector-offset pairs
+	}
+
+	fmt.Println()
+}
+
 func Menu(reader *bufio.Reader, fh *os.File) {
 	// read sector 30 and 34
 	sectorIndex := 30
@@ -165,6 +193,8 @@ func Menu(reader *bufio.Reader, fh *os.File) {
 			done = true
 		} else if line == "stats" {
 			fmt.Println("not implemented")
+		} else if line == "cat" {
+			cpmCat(fh, directory)
 		} else if line == "dir" {
 			cpmDir(fh, directory)
 		} else if line == "type" {
