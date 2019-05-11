@@ -71,6 +71,46 @@ func getHighBit(bs []byte) []bool {
 	return result
 }
 
+// convert extension flags (the 'normal' ones) to text
+func flagsToText(flags []bool) string {
+	text := ""
+
+	if flags[0] {
+		text += "W"
+	} else {
+		text += " "
+	}
+
+	if flags[1] {
+		text += "S"
+	} else {
+		text += " "
+	}
+
+	if flags[2] {
+		text += "A"
+	} else {
+		text += " "
+	}
+
+	return text
+}
+
+// convert name flags to text
+func specialFlagsToText(flags []bool) string {
+	text := ""
+
+	for i := 0; i < 8; i++ {
+		if flags[i] {
+			text += fmt.Sprintf("%d", i+1)
+		} else {
+			text += " "
+		}
+	}
+
+	return text
+}
+
 // print detailed catalog from directory
 func cpmCat(fh *os.File, directory []byte) {
 	fmt.Println("Name          Extent Flags         User Records")
@@ -105,32 +145,7 @@ func cpmCat(fh *os.File, directory []byte) {
 			name := string(utils.TrimSlice(stripHighBit(nameBytes)))
 			extension := string(utils.TrimSlice(extensionBytes))
 
-			// convert extension flags (the 'normal' ones) to text
-			flags := ""
-			if extension_flags[0] {
-				flags += "W"
-			} else {
-				flags += " "
-			}
-			if extension_flags[1] {
-				flags += "S"
-			} else {
-				flags += " "
-			}
-			if extension_flags[2] {
-				flags += "A"
-			} else {
-				flags += " "
-			}
-
-			// convert name flags to text
-			for i := 0; i < 8; i++ {
-				if name_flags[i] {
-					flags += fmt.Sprintf("%d", i+1)
-				} else {
-					flags += " "
-				}
-			}
+			flags := flagsToText(extension_flags) + specialFlagsToText(name_flags)
 
 			fmt.Printf("%-8s.%-3s    %2d    %s  %3d    %4d", name, extension, extent, flags, user, recordCount)
 
