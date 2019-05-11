@@ -147,7 +147,7 @@ func help() {
 	fmt.Println("exit  - exit to main level")
 }
 
-func printHdosDirectoryBlock(directoryBlock []byte, grtSector []byte, sectorsPerGroup int) {
+func printDirectoryBlock(directoryBlock []byte, grtSector []byte, sectorsPerGroup int) {
 	// parse and print 22 entries of 23 bytes each
 	for i := 0; i < 22; i++ {
 		start := i * 23
@@ -179,7 +179,7 @@ func printHdosDirectoryBlock(directoryBlock []byte, grtSector []byte, sectorsPer
 	}
 }
 
-func getHdosFileSectors(wantedName string, directoryBlock []byte, grtSector []byte, sectorsPerGroup int) ([]int, bool) {
+func getFileSectors(wantedName string, directoryBlock []byte, grtSector []byte, sectorsPerGroup int) ([]int, bool) {
 	// parse and print 22 entries of 23 bytes each
 	for i := 0; i < 22; i++ {
 		start := i * 23
@@ -206,7 +206,7 @@ func getHdosFileSectors(wantedName string, directoryBlock []byte, grtSector []by
 	return []int{}, false
 }
 
-type HdosLabel struct {
+type Label struct {
 	Dis  int
 	Grt  int
 	Spg  int
@@ -217,7 +217,7 @@ type HdosLabel struct {
 	Text string
 }
 
-func (label *HdosLabel) Init(sector []byte) {
+func (label *Label) Init(sector []byte) {
 	// extract and validate sector number for first directory sector [10,399]
 	label.Dis = int(sector[3]) + int(sector[4])*256
 
@@ -257,7 +257,7 @@ func (label *HdosLabel) Init(sector []byte) {
 	// if version 20h: num sectors match flags 0 => 400 1 => 800 2 => 800 3 => 1600
 }
 
-func (label HdosLabel) Print() {
+func (label Label) Print() {
 	fmt.Printf("First directory sector: 0x%02X (%d)\n", label.Dis, label.Dis)
 	fmt.Printf("GRT sector: 0x%02X (%d)\n", label.Grt, label.Grt)
 	fmt.Printf("Sectors per group: %d\n", label.Spg)
@@ -268,11 +268,11 @@ func (label HdosLabel) Print() {
 	fmt.Printf("Label: %s\n", label.Text)
 }
 
-func hdosDir(fh *os.File, hdosLabel HdosLabel, grtSector []byte) {
+func dirCommand(fh *os.File, label Label, grtSector []byte) {
 	fmt.Println("Name            Flags    Created        Modified      Used  Allocated")
 
 	// start with first directory sector
-	sectorIndex := hdosLabel.Dis
+	sectorIndex := label.Dis
 
 	for sectorIndex != 0 {
 		directoryBlock, err := readSectorPair(fh, sectorIndex)
@@ -280,7 +280,7 @@ func hdosDir(fh *os.File, hdosLabel HdosLabel, grtSector []byte) {
 			fmt.Println(err.Error())
 		}
 
-		printHdosDirectoryBlock(directoryBlock, grtSector, hdosLabel.Spg)
+		printDirectoryBlock(directoryBlock, grtSector, label.Spg)
 
 		// read 6 bytes
 		vectorBytes := directoryBlock[506:512]
@@ -292,9 +292,9 @@ func hdosDir(fh *os.File, hdosLabel HdosLabel, grtSector []byte) {
 	fmt.Println()
 }
 
-func hdosFileSectors(fh *os.File, hdosLabel HdosLabel, grtSector []byte, wantedFilename string) ([]int, bool) {
+func fileSectors(fh *os.File, label Label, grtSector []byte, wantedFilename string) ([]int, bool) {
 	// start with first directory sector
-	sectorIndex := hdosLabel.Dis
+	sectorIndex := label.Dis
 
 	fileSectors := []int{}
 
@@ -306,7 +306,7 @@ func hdosFileSectors(fh *os.File, hdosLabel HdosLabel, grtSector []byte, wantedF
 			fmt.Println(err.Error())
 		}
 
-		fileSectors, found = getHdosFileSectors(wantedFilename, directoryBlock, grtSector, hdosLabel.Spg)
+		fileSectors, found = getFileSectors(wantedFilename, directoryBlock, grtSector, label.Spg)
 
 		// read 6 bytes
 		vectorBytes := directoryBlock[506:512]
@@ -318,8 +318,8 @@ func hdosFileSectors(fh *os.File, hdosLabel HdosLabel, grtSector []byte, wantedF
 	return fileSectors, found
 }
 
-func hdosType(fh *os.File, hdosLabel HdosLabel, grtSector []byte, filename string) {
-	sectors, found := hdosFileSectors(fh, hdosLabel, grtSector, filename)
+func typeCommand(fh *os.File, label Label, grtSector []byte, filename string) {
+	sectors, found := fileSectors(fh, label, grtSector, filename)
 
 	if found {
 		// for each sector
@@ -348,12 +348,12 @@ func Menu(reader *bufio.Reader, fh *os.File) {
 		return
 	}
 
-	hdosLabel := HdosLabel{}
-	hdosLabel.Init(sector)
+	label := Label{}
+	label.Init(sector)
 
 	// check text label
 	labelError := false
-	for _, c := range hdosLabel.Text {
+	for _, c := range label.Text {
 		if c < 32 || c > 126 {
 			labelError = true
 		}
@@ -364,7 +364,7 @@ func Menu(reader *bufio.Reader, fh *os.File) {
 	}
 
 	// read Group Reservation Table (GRT)
-	grtSector, err := readSector(fh, hdosLabel.Grt)
+	grtSector, err := readSector(fh, label.Grt)
 	checkAndExit(err)
 
 	// prompt for command and process it
@@ -383,16 +383,16 @@ func Menu(reader *bufio.Reader, fh *os.File) {
 			fmt.Println()
 			done = true
 		} else if parts[0] == "stats" {
-			hdosLabel.Print()
+			label.Print()
 
-			freeSectors := getSectors(grtSector, 0, 0, hdosLabel.Spg, hdosLabel.Spg)
+			freeSectors := getSectors(grtSector, 0, 0, label.Spg, label.Spg)
 			freeSectorCount := len(freeSectors)
 			fmt.Printf("Free sectors: %d\n", freeSectorCount)
 			fmt.Println()
 		} else if parts[0] == "cat" || parts[0] == "dir" {
-			hdosDir(fh, hdosLabel, grtSector)
+			dirCommand(fh, label, grtSector)
 		} else if parts[0] == "type" && len(parts) == 2 {
-			hdosType(fh, hdosLabel, grtSector, parts[1])
+			typeCommand(fh, label, grtSector, parts[1])
 		} else if parts[0] == "dump" {
 			fmt.Println("not implemented")
 		} else if parts[0] == "copy" {
