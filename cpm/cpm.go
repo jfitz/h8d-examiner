@@ -13,7 +13,8 @@ import (
 
 func help() {
 	fmt.Println("stats - display statistics")
-	fmt.Println("cat   - list directory entries and details")
+	fmt.Println("cat   - list directory entries")
+	fmt.Println("cats  - list directory entries and details")
 	fmt.Println("dir   - list files on disk")
 	fmt.Println("type  - display contents of file")
 	fmt.Println("dump  - dump contents of file")
@@ -135,23 +136,76 @@ func recordsToText(records []int) string {
 	return text
 }
 
-// normal directory entry
-func entryToText(entry []byte) string {
-	user := int(entry[0])
+type DirectoryEntry struct {
+	User        byte     // 0
+	Name        [8]byte  // 1-8
+	Extension   [3]byte  // 9-11
+	Extent      byte     // 12
+	S1          byte     // 13
+	S2          byte     // 14
+	RecordCount byte     // 15
+	Blocks      [16]byte // 16-31
+}
 
-	nameBytes := stripHighBit(entry[1:9])
+func (entry *DirectoryEntry) Init(bs []byte) {
+	// user
+	entry.User = bs[0]
+
+	// name
+	for i := 0; i < 8; i++ {
+		entry.Name[i] = bs[1+i]
+	}
+
+	// extension
+	for i := 0; i < 3; i++ {
+		entry.Extension[i] = bs[9+i]
+	}
+
+	// extent
+	entry.Extent = bs[12]
+
+	// s1 and s2
+	entry.S1 = bs[13]
+	entry.S2 = bs[14]
+
+	// record count
+	entry.RecordCount = bs[15]
+
+	// allocation blocks
+	for i := 0; i < 16; i++ {
+		entry.Blocks[i] = bs[16+i]
+	}
+}
+
+func (entry DirectoryEntry) NormalName() bool {
+	return entry.Name[1] >= 32 && entry.Name[1] <= 126
+}
+
+func (entry DirectoryEntry) ToText() string {
+	if entry.NormalName() {
+		return entry.normalToText()
+	}
+
+	return entry.deletedEntryToText()
+}
+
+// normal directory entry
+func (entry DirectoryEntry) normalToText() string {
+	user := int(entry.User)
+
+	nameBytes := stripHighBit(entry.Name[:])
 	name := string(utils.TrimSlice(nameBytes))
 
-	extensionBytes := stripHighBit(entry[9:12])
+	extensionBytes := stripHighBit(entry.Extension[:])
 	extension := string(utils.TrimSlice(extensionBytes))
 
-	extent := int(entry[12])
+	extent := int(entry.Extent)
 
-	recordCount := int(entry[15])
+	recordCount := int(entry.RecordCount)
 
 	// extract flags from extension and name
-	name_flags := getHighBit(entry[1:9])
-	extension_flags := getHighBit(entry[9:12])
+	name_flags := getHighBit(entry.Name[:])
+	extension_flags := getHighBit(entry.Extension[:])
 
 	// convert bytes to strings
 	flags := flagsToText(extension_flags) + specialFlagsToText(name_flags)
@@ -163,13 +217,13 @@ func entryToText(entry []byte) string {
 }
 
 // strange directory entry - probably empty or deleted
-func deletedEntryToText(entry []byte) string {
-	user := int(entry[0])
+func (entry DirectoryEntry) deletedEntryToText() string {
+	user := int(entry.User)
 
-	nameBytes := stripHighBit(entry[1:9])
+	nameBytes := stripHighBit(entry.Name[:])
 	name := string(utils.TrimSlice(nameBytes))
 
-	extensionBytes := stripHighBit(entry[9:12])
+	extensionBytes := stripHighBit(entry.Extension[:])
 	extension := string(utils.TrimSlice(extensionBytes))
 
 	// print the information
@@ -178,8 +232,20 @@ func deletedEntryToText(entry []byte) string {
 	return text
 }
 
+func (entry DirectoryEntry) AllocationBlocks() []int {
+	allocationBytes := utils.TrimSlice(entry.Blocks[:])
+
+	blocks := []int{}
+
+	for _, b := range allocationBytes {
+		blocks = append(blocks, int(b))
+	}
+
+	return blocks
+}
+
 // print detailed catalog from directory
-func cpmCat(fh *os.File, directory []byte) {
+func cpmCat(fh *os.File, directory []byte, details bool) {
 	fmt.Println("User Name          Extent Flags         Records")
 
 	index := 0
@@ -189,35 +255,30 @@ func cpmCat(fh *os.File, directory []byte) {
 	for index < len(directory) {
 		end := index + entrySize
 		entry := directory[index:end]
+		e2 := DirectoryEntry{}
+		e2.Init(entry)
 
 		// user := int(entry[0])
 
 		// todo: user 0-31 else print alternate format
 		// todo: entry outside 32-126 print alternate format
-		if entry[1] >= 32 && entry[1] <= 126 {
-			text := entryToText(entry)
-			fmt.Println(text)
+		text := e2.ToText()
+		fmt.Println(text)
 
-			// diag: print blocks
-			allocationBytes := utils.TrimSlice(entry[16:32])
-			blocks := []int{}
-			for _, b := range allocationBytes {
-				blocks = append(blocks, int(b))
+		if details {
+			// diag: print block numbers and record numbers
+			if e2.NormalName() {
+				// block numbers
+				blocks := e2.AllocationBlocks()
+				fmt.Printf(" Blocks: % 02X\n", blocks)
+
+				// record numbers
+				recordCount := int(e2.RecordCount)
+				records := allRecords(blocks, directoryFirstRecord, recordCount)
+
+				recordText := recordsToText(records)
+				fmt.Println(recordText)
 			}
-
-			fmt.Printf(" Blocks: % 02X\n", blocks)
-
-			// diag: print record numbers
-			recordCount := int(entry[15])
-			records := allRecords(blocks, directoryFirstRecord, recordCount)
-
-			recordText := recordsToText(records)
-			fmt.Println(recordText)
-
-			fmt.Println()
-		} else {
-			text := deletedEntryToText(entry)
-			fmt.Println(text)
 		}
 
 		index += entrySize
@@ -279,7 +340,9 @@ func Menu(reader *bufio.Reader, fh *os.File) {
 		} else if line == "stats" {
 			fmt.Println("not implemented")
 		} else if line == "cat" {
-			cpmCat(fh, directory)
+			cpmCat(fh, directory, false)
+		} else if line == "cats" {
+			cpmCat(fh, directory, true)
 		} else if line == "dir" {
 			cpmDir(fh, directory)
 		} else if line == "type" {
