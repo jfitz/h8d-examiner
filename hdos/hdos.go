@@ -5,62 +5,21 @@ package hdos
 
 import (
 	"bufio"
-	"bytes"
 	"errors"
 	"fmt"
+	"github.com/jfitz/h8d-examiner/utils"
 	"os"
 	"strings"
 )
 
-func checkAndExit(e error) {
-	if e != nil {
-		fmt.Println(e.Error())
-		os.Exit(1)
-	}
-}
-
-func trimSlice(slice []byte) []byte {
-	n := bytes.IndexByte(slice, byte(0))
-
-	if n > -1 {
-		slice = slice[:n]
-	}
-
-	return slice
-}
-
-func readSector(fh *os.File, sectorIndex int) ([]byte, error) {
-	sector := make([]byte, 256)
-
-	// position at the desired sector
-	pos := int64(sectorIndex) * 256
-
-	_, err := fh.Seek(pos, 0)
-	if err != nil {
-		return sector, errors.New("Sector does not exist")
-	}
-
-	// read the sector
-	_, err = fh.Read(sector)
-	if err != nil {
-		return sector, err
-	}
-
-	if len(sector) != 256 {
-		return sector, errors.New("Invalid sector length")
-	}
-
-	return sector, nil
-}
-
 func readSectorPair(fh *os.File, sectorIndex int) ([]byte, error) {
 	// read 2 sectors (512 bytes)
-	first, err := readSector(fh, sectorIndex)
+	first, err := utils.ReadSector(fh, sectorIndex)
 	if err != nil {
 		return []byte{}, errors.New("Cannot read first directory sector")
 	}
 
-	second, err := readSector(fh, sectorIndex+1)
+	second, err := utils.ReadSector(fh, sectorIndex+1)
 	if err != nil {
 		return []byte{}, errors.New("Cannot read second directory sector")
 	}
@@ -156,8 +115,8 @@ func printDirectoryBlock(directoryBlock []byte, grtSector []byte, sectorsPerGrou
 		nameBytes := entry[0:8]
 		if nameBytes[0] < 0xfe {
 			extensionBytes := entry[8:11]
-			name := string(trimSlice(nameBytes))
-			extension := string(trimSlice(extensionBytes))
+			name := string(utils.TrimSlice(nameBytes))
+			extension := string(utils.TrimSlice(extensionBytes))
 			flagByte := entry[14]
 			flags := flagsToText(flagByte)
 
@@ -188,8 +147,8 @@ func getFileSectors(wantedName string, directoryBlock []byte, grtSector []byte, 
 		nameBytes := entry[0:8]
 		if nameBytes[0] < 0xfe {
 			extensionBytes := entry[8:11]
-			name := string(trimSlice(nameBytes))
-			extension := string(trimSlice(extensionBytes))
+			name := string(utils.TrimSlice(nameBytes))
+			extension := string(utils.TrimSlice(extensionBytes))
 
 			firstCluster := entry[16]
 			lastCluster := entry[17]
@@ -250,7 +209,7 @@ func (label *Label) Init(sector []byte) {
 	}
 
 	// extract and validate label ASCII text, zero terminated
-	labelBytes := trimSlice(sector[17:77])
+	labelBytes := utils.TrimSlice(sector[17:77])
 
 	label.Text = string(labelBytes)
 
@@ -324,7 +283,7 @@ func typeCommand(fh *os.File, label Label, grtSector []byte, filename string) {
 	if found {
 		// for each sector
 		for _, sector := range sectors {
-			sectorBytes, err := readSector(fh, sector)
+			sectorBytes, err := utils.ReadSector(fh, sector)
 			if err != nil {
 				fmt.Println("Count not read sector")
 			} else {
@@ -342,7 +301,7 @@ func typeCommand(fh *os.File, label Label, grtSector []byte, filename string) {
 func Menu(reader *bufio.Reader, fh *os.File) {
 	// read sector 9
 	sectorIndex := 9
-	sector, err := readSector(fh, sectorIndex)
+	sector, err := utils.ReadSector(fh, sectorIndex)
 	if err != nil {
 		fmt.Println("Cannot read sector 9")
 		return
@@ -364,8 +323,8 @@ func Menu(reader *bufio.Reader, fh *os.File) {
 	}
 
 	// read Group Reservation Table (GRT)
-	grtSector, err := readSector(fh, label.Grt)
-	checkAndExit(err)
+	grtSector, err := utils.ReadSector(fh, label.Grt)
+	utils.CheckAndExit(err)
 
 	// prompt for command and process it
 	done := false
@@ -373,7 +332,7 @@ func Menu(reader *bufio.Reader, fh *os.File) {
 		// display prompt and read command
 		fmt.Printf("HDOS> ")
 		line, err := reader.ReadString('\n')
-		checkAndExit(err)
+		utils.CheckAndExit(err)
 
 		// process the command
 		line = strings.TrimSpace(line)

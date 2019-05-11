@@ -5,53 +5,11 @@ package cpm
 
 import (
 	"bufio"
-	"bytes"
-	"errors"
 	"fmt"
+	"github.com/jfitz/h8d-examiner/utils"
 	"os"
 	"strings"
 )
-
-func checkAndExit(e error) {
-	if e != nil {
-		fmt.Println(e.Error())
-		os.Exit(1)
-	}
-}
-
-func trimSlice(slice []byte) []byte {
-	n := bytes.IndexByte(slice, byte(0))
-
-	if n > -1 {
-		slice = slice[:n]
-	}
-
-	return slice
-}
-
-func readSector(fh *os.File, sectorIndex int) ([]byte, error) {
-	sector := make([]byte, 256)
-
-	// position at the desired sector
-	pos := int64(sectorIndex) * 256
-
-	_, err := fh.Seek(pos, 0)
-	if err != nil {
-		return sector, errors.New("Sector does not exist")
-	}
-
-	// read the sector
-	_, err = fh.Read(sector)
-	if err != nil {
-		return sector, err
-	}
-
-	if len(sector) != 256 {
-		return sector, errors.New("Invalid sector length")
-	}
-
-	return sector, nil
-}
 
 func help() {
 	fmt.Println("stats - display statistics")
@@ -114,7 +72,7 @@ func cpmDir(fh *os.File, directory []byte) {
 
 			recordCount := int(entry[15])
 
-			allocationBytes := trimSlice(entry[16:32])
+			allocationBytes := utils.TrimSlice(entry[16:32])
 			blocks := []int{}
 			for _, b := range allocationBytes {
 				blocks = append(blocks, int(b))
@@ -126,8 +84,8 @@ func cpmDir(fh *os.File, directory []byte) {
 			flag3Bit := (entry[11] & 0x80) == 0x80
 
 			// convert bytes to strings
-			name := string(trimSlice(nameBytes))
-			extension := string(trimSlice(extensionBytes[:]))
+			name := string(utils.TrimSlice(nameBytes))
+			extension := string(utils.TrimSlice(extensionBytes[:]))
 
 			flags := ""
 			if flag1Bit {
@@ -176,14 +134,14 @@ func cpmDir(fh *os.File, directory []byte) {
 func Menu(reader *bufio.Reader, fh *os.File) {
 	// read sector 30 and 34
 	sectorIndex := 30
-	sector1, err := readSector(fh, sectorIndex)
+	sector1, err := utils.ReadSector(fh, sectorIndex)
 	if err != nil {
 		fmt.Println("Cannot read sector 30")
 		return
 	}
 
 	sectorIndex = 34
-	sector2, err := readSector(fh, sectorIndex)
+	sector2, err := utils.ReadSector(fh, sectorIndex)
 	if err != nil {
 		fmt.Println("Cannot read sector 34")
 		return
@@ -197,7 +155,7 @@ func Menu(reader *bufio.Reader, fh *os.File) {
 		// display prompt and read command
 		fmt.Printf("CP/M> ")
 		line, err := reader.ReadString('\n')
-		checkAndExit(err)
+		utils.CheckAndExit(err)
 
 		// process the command
 		line = strings.TrimSpace(line)
