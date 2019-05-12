@@ -189,7 +189,15 @@ func (entry DirectoryEntry) normalExtent() bool {
 	return byte1 <= 0x80
 }
 
-func (entry DirectoryEntry) ToText() string {
+func (entry DirectoryEntry) nameToText() string {
+	name := strings.TrimSpace(string(stripHighBit(entry.Name[:])))
+	extension := strings.TrimSpace(string(stripHighBit(entry.Extension[:])))
+	filename := name + "." + extension
+
+	return filename
+}
+
+func (entry DirectoryEntry) toText() string {
 	if entry.normalName() && entry.normalExtent() {
 		return entry.normalToText()
 	}
@@ -240,7 +248,7 @@ func (entry DirectoryEntry) deletedEntryToText() string {
 	return text
 }
 
-func (entry DirectoryEntry) AllocationBlocks() []int {
+func (entry DirectoryEntry) allocationBlocks() []int {
 	allocationBytes := utils.TrimSlice(entry.Blocks[:])
 
 	blocks := []int{}
@@ -270,14 +278,14 @@ func catCommand(fh *os.File, directory []byte, details bool) {
 		// todo: user 0-31 print normal format
 		// todo: user 0xE5 print deleted format
 		// todo: else print alternate format
-		text := entry.ToText()
+		text := entry.toText()
 		fmt.Println(text)
 
 		if details {
 			// diag: print block numbers and record numbers
 			if entry.normalName() {
 				// block numbers
-				blocks := entry.AllocationBlocks()
+				blocks := entry.allocationBlocks()
 				fmt.Printf(" Blocks: % 02X\n", blocks)
 
 				// record numbers
@@ -297,17 +305,57 @@ func catCommand(fh *os.File, directory []byte, details bool) {
 
 // print file-oriented directory (one line per file, not per entry)
 func dirCommand(fh *os.File, directory []byte) {
-	fmt.Println("Name          Extent Flags User Records")
+	fmt.Println("Name          Flags      Records")
 
 	// for each user (0 to 31)
 	for user := 0; user < 32; user++ {
 		// get list of all file names with no repeats (strip flags)
+		index := 0
+		entrySize := 32
+		directoryFirstRecord := 60
+
+		fileBlocks := map[string]int{}
+		fileFlags := map[string]string{}
+
+		for index < len(directory) {
+			end := index + entrySize
+			entry := DirectoryEntry{}
+			entry.Init(directory[index:end])
+
+			entryUser := int(entry.User)
+
+			if entryUser == user {
+				// get filename
+				filename := entry.nameToText()
+
+				if entry.Extent == 0 {
+					// extract flags from extension and name
+					name_flags := getHighBit(entry.Name[:])
+					extension_flags := getHighBit(entry.Extension[:])
+					flags := flagsToText(extension_flags) + specialFlagsToText(name_flags)
+					fileFlags[filename] = flags
+				}
+
+				// calculate size
+				blocks := entry.allocationBlocks()
+				recordCount := int(entry.RecordCount)
+				records := allRecords(blocks, directoryFirstRecord, recordCount)
+				fileBlocks[filename] += len(records)
+			}
+
+			index += entrySize
+		}
 		// if any
 		// for each file
-		// get all allocation blocks in order
-		// convert allocation blocks to CP/M records
-		// convert records to sector-offset pairs
-		// print user, file name, and sector-offset pairs
+
+		for filename, size := range fileBlocks {
+			// get all allocation blocks in order
+			// convert allocation blocks to CP/M records
+			// convert records to sector-offset pairs
+			// print user, file name, and sector-offset pairs
+			flags := fileFlags[filename]
+			fmt.Printf("%-12s  %s %5d\n", filename, flags, size)
+		}
 	}
 
 	fmt.Println()
