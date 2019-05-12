@@ -177,12 +177,20 @@ func (entry *DirectoryEntry) Init(bs []byte) {
 	}
 }
 
-func (entry DirectoryEntry) NormalName() bool {
-	return entry.Name[1] >= 32 && entry.Name[1] <= 126
+func (entry DirectoryEntry) normalName() bool {
+	byte1 := entry.Name[1] & 0x7F
+
+	return byte1 >= 32 && byte1 <= 126
+}
+
+func (entry DirectoryEntry) normalExtent() bool {
+	byte1 := entry.Extent
+
+	return byte1 <= 0x80
 }
 
 func (entry DirectoryEntry) ToText() string {
-	if entry.NormalName() {
+	if entry.normalName() && entry.normalExtent() {
 		return entry.normalToText()
 	}
 
@@ -254,26 +262,26 @@ func catCommand(fh *os.File, directory []byte, details bool) {
 
 	for index < len(directory) {
 		end := index + entrySize
-		entry := directory[index:end]
-		e2 := DirectoryEntry{}
-		e2.Init(entry)
+		entry := DirectoryEntry{}
+		entry.Init(directory[index:end])
 
 		// user := int(entry[0])
 
-		// todo: user 0-31 else print alternate format
-		// todo: entry outside 32-126 print alternate format
-		text := e2.ToText()
+		// todo: user 0-31 print normal format
+		// todo: user 0xE5 print deleted format
+		// todo: else print alternate format
+		text := entry.ToText()
 		fmt.Println(text)
 
 		if details {
 			// diag: print block numbers and record numbers
-			if e2.NormalName() {
+			if entry.normalName() {
 				// block numbers
-				blocks := e2.AllocationBlocks()
+				blocks := entry.AllocationBlocks()
 				fmt.Printf(" Blocks: % 02X\n", blocks)
 
 				// record numbers
-				recordCount := int(e2.RecordCount)
+				recordCount := int(entry.RecordCount)
 				records := allRecords(blocks, directoryFirstRecord, recordCount)
 
 				recordText := recordsToText(records)
