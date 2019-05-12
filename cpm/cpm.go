@@ -22,7 +22,7 @@ func help() {
 	fmt.Println("exit  - exit to main level")
 }
 
-func cpmRecords(block int, dirBase int) []int {
+func blockToRecords(block int, dirBase int) []int {
 	recordMap := [][]int{
 		{0, 1, 8, 9, 16, 17, 4, 5},
 		{12, 13, 2, 3, 10, 11, 18, 19},
@@ -44,7 +44,7 @@ func (sectorAndOffset SectorAndOffset) to_string() string {
 	return fmt.Sprintf("%d:%d", sectorAndOffset.Sector, sectorAndOffset.Offset)
 }
 
-func cpmRecordToSectorAndOffset(record int) SectorAndOffset {
+func recordToSectorAndOffset(record int) SectorAndOffset {
 	sector := record / 2
 	offset := record % 2
 	sectorAndOffset := SectorAndOffset{sector, offset}
@@ -116,7 +116,7 @@ func allRecords(blocks []int, directoryFirstRecord int, recordCount int) []int {
 	records := []int{}
 
 	for _, block := range blocks {
-		blockRecords := cpmRecords(block, directoryFirstRecord)
+		blockRecords := blockToRecords(block, directoryFirstRecord)
 		records = append(records, blockRecords...)
 	}
 
@@ -129,7 +129,7 @@ func recordsToText(records []int) string {
 	text := ""
 
 	for _, record := range records {
-		sectorAndOffset := cpmRecordToSectorAndOffset(record)
+		sectorAndOffset := recordToSectorAndOffset(record)
 		text += fmt.Sprintf("%s ", sectorAndOffset.to_string())
 	}
 
@@ -245,7 +245,7 @@ func (entry DirectoryEntry) AllocationBlocks() []int {
 }
 
 // print detailed catalog from directory
-func cpmCat(fh *os.File, directory []byte, details bool) {
+func catCommand(fh *os.File, directory []byte, details bool) {
 	fmt.Println("User Name          Extent Flags         Records")
 
 	index := 0
@@ -288,7 +288,7 @@ func cpmCat(fh *os.File, directory []byte, details bool) {
 }
 
 // print file-oriented directory (one line per file, not per entry)
-func cpmDir(fh *os.File, directory []byte) {
+func dirCommand(fh *os.File, directory []byte) {
 	fmt.Println("Name          Extent Flags User Records")
 
 	// for each user (0 to 31)
@@ -340,11 +340,11 @@ func Menu(reader *bufio.Reader, fh *os.File) {
 		} else if line == "stats" {
 			fmt.Println("not implemented")
 		} else if line == "cat" {
-			cpmCat(fh, directory, false)
+			catCommand(fh, directory, false)
 		} else if line == "cats" {
-			cpmCat(fh, directory, true)
+			catCommand(fh, directory, true)
 		} else if line == "dir" {
-			cpmDir(fh, directory)
+			dirCommand(fh, directory)
 		} else if line == "type" {
 			fmt.Println("not implemented")
 		} else if line == "dump" {
