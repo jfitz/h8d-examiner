@@ -32,7 +32,17 @@ func blockToRecords(block int, dirBase int) []int {
 	}
 
 	index := block % 5
-	return recordMap[index]
+	track := (block / 5) * 40
+	offsets := recordMap[index]
+
+	records := []int{}
+	for _, offset := range offsets {
+		record := dirBase + track + offset
+
+		records = append(records, record)
+	}
+
+	return records
 }
 
 type SectorAndOffset struct {
@@ -283,7 +293,7 @@ func catCommand(fh *os.File, directory []byte, details bool) {
 
 		if details {
 			// diag: print block numbers and record numbers
-			if entry.normalName() {
+			if entry.normalName() && entry.normalExtent() {
 				// block numbers
 				blocks := entry.allocationBlocks()
 				fmt.Printf(" Blocks: % 02X\n", blocks)
@@ -345,14 +355,9 @@ func dirCommand(fh *os.File, directory []byte) {
 
 			index += entrySize
 		}
-		// if any
-		// for each file
 
+		// for each file, print info
 		for filename, size := range fileBlocks {
-			// get all allocation blocks in order
-			// convert allocation blocks to CP/M records
-			// convert records to sector-offset pairs
-			// print user, file name, and sector-offset pairs
 			flags := fileFlags[filename]
 			fmt.Printf("%-12s  %s %5d\n", filename, flags, size)
 		}
@@ -361,8 +366,109 @@ func dirCommand(fh *os.File, directory []byte) {
 	fmt.Println()
 }
 
+func readRecord(fh *os.File, recordNumber int) ([]byte, error) {
+	sectorNumber := recordNumber / 2
+	offset := recordNumber % 2
+
+	recordBytes := []byte{}
+	sectorBytes, err := utils.ReadSector(fh, sectorNumber)
+	if err != nil {
+		return recordBytes, err
+	}
+
+	start := 0 + 128*offset
+	end := start + 128
+	recordBytes = sectorBytes[start:end]
+
+	return recordBytes, nil
+}
+
+func typeCommand(fh *os.File, directory []byte, filename string) {
+	// split filename into user, file, and name
+	parts := strings.Split(filename, ".")
+	name := parts[0]
+	extension := parts[1]
+	// todo: file may have no extension
+	for len(name) < 8 {
+		name += " "
+	}
+	for len(extension) < 3 {
+		extension += " "
+	}
+	user := 0
+	// todo: split user from filename
+
+	// collect records in extent order
+	entrySize := 32
+	directoryFirstRecord := 60
+
+	extent := 0
+	recordsPerBlock := 128
+	done := false
+	seenCtrlZ := false
+
+	for extent < 128 && !done && !seenCtrlZ {
+		index := 0
+		found := false
+
+		for index < len(directory) {
+			end := index + entrySize
+			entry := DirectoryEntry{}
+			entry.Init(directory[index:end])
+
+			if int(entry.User) == user && string(entry.Name[:]) == name && string(entry.Extension[:]) == extension && int(entry.Extent) == extent {
+				found = true
+
+				blocks := entry.allocationBlocks()
+				recordCount := int(entry.RecordCount)
+
+				// assume that the last block has a record count less than recordsPerBlock
+				if recordCount < recordsPerBlock {
+					done = true
+				}
+
+				records := allRecords(blocks, directoryFirstRecord, recordCount)
+
+				// for each record in block
+				for _, record := range records {
+					// read data
+					recordBytes, err := readRecord(fh, record)
+
+					if err != nil {
+						fmt.Println("Could not read record")
+					} else {
+						// print data
+						// text := string(recordBytes)
+						// fmt.Print(text)
+						for _, b := range recordBytes {
+							if b == 0x1A {
+								seenCtrlZ = true
+							} else {
+								if !seenCtrlZ {
+									fmt.Print(string(b))
+								}
+							}
+						}
+					}
+				}
+			}
+
+			index += entrySize
+		}
+
+		if found {
+			extent += 1
+		} else {
+			done = true
+		}
+	}
+
+	fmt.Println()
+	fmt.Println()
+}
+
 func Menu(reader *bufio.Reader, fh *os.File) {
-	// read sector 30 and 34
+	// read sector 30 and 34 (the directory on an H-17 SSSD disk)
 	sectorIndex := 30
 	sector1, err := utils.ReadSector(fh, sectorIndex)
 	if err != nil {
@@ -389,23 +495,24 @@ func Menu(reader *bufio.Reader, fh *os.File) {
 
 		// process the command
 		line = strings.TrimSpace(line)
+		parts := strings.Split(line, " ")
 
-		if line == "exit" {
+		if parts[0] == "exit" {
 			fmt.Println()
 			done = true
-		} else if line == "stats" {
+		} else if parts[0] == "stats" {
 			fmt.Println("not implemented")
-		} else if line == "cat" {
+		} else if parts[0] == "cat" {
 			catCommand(fh, directory, false)
-		} else if line == "cats" {
+		} else if parts[0] == "cats" {
 			catCommand(fh, directory, true)
-		} else if line == "dir" {
+		} else if parts[0] == "dir" {
 			dirCommand(fh, directory)
-		} else if line == "type" {
+		} else if parts[0] == "type" {
+			typeCommand(fh, directory, parts[1])
+		} else if parts[0] == "dump" {
 			fmt.Println("not implemented")
-		} else if line == "dump" {
-			fmt.Println("not implemented")
-		} else if line == "copy" {
+		} else if parts[0] == "copy" {
 			fmt.Println("not implemented")
 		} else {
 			help()

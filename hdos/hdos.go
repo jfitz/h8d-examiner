@@ -291,6 +291,9 @@ func typeCommand(fh *os.File, label Label, grtSector []byte, filename string) {
 				fmt.Print(text)
 			}
 		}
+
+		fmt.Println()
+		fmt.Println()
 	} else {
 		fmt.Println("File not found")
 	}
