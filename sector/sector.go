@@ -21,67 +21,13 @@ func help() {
 	fmt.Println("hex   - show dump in hex")
 }
 
-func dumpOctal(bytes []byte) {
-	for _, b := range bytes {
-		fmt.Printf(" %03o", b)
-	}
-}
-
-func dumpAscii(bytes []byte) {
-	for _, b := range bytes {
-		if b >= ' ' && b <= 127 {
-			fmt.Printf("%c", b)
-		} else {
-			fmt.Print(".")
-		}
-	}
-}
-
 func dumpSector(fh *os.File, sectorIndex int, base string) error {
 	sector, err := utils.ReadSector(fh, sectorIndex)
 	if err != nil {
 		return err
 	}
 
-	// display the sector
-
-	// print header information
-	if base == "hex" {
-		fmt.Printf("Sector: %04XH (%d):\n", sectorIndex, sectorIndex)
-	} else {
-		highByte := sectorIndex / 256
-		lowByte := sectorIndex % 256
-		fmt.Printf("Sector: %03o.%03oA (%d):\n", highByte, lowByte, sectorIndex)
-	}
-
-	fmt.Println()
-
-	// print data in lines of 16 bytes
-	for i := 0; i < len(sector); i += 16 {
-		bytes := sector[i : i+16]
-
-		// print in hex or octal
-		if base == "hex" {
-			fmt.Printf("%02X: ", i)
-		} else {
-			fmt.Printf("%03o: ", i)
-		}
-
-		if base == "hex" {
-			fmt.Printf("% 02X", bytes)
-		} else {
-			dumpOctal(bytes)
-		}
-
-		fmt.Print("  ")
-
-		// print in ASCII (with dots for non-printable bytes)
-		dumpAscii(bytes)
-
-		fmt.Println()
-	}
-
-	return nil
+	return utils.Dump(sector, sectorIndex, base)
 }
 
 func Menu(reader *bufio.Reader, fh *os.File) {
