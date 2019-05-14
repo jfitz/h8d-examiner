@@ -383,31 +383,46 @@ func readRecord(fh *os.File, recordNumber int) ([]byte, error) {
 	return recordBytes, nil
 }
 
-func typeCommand(fh *os.File, directory []byte, filename string) {
-	// split filename into user, file, and name
-	parts := strings.Split(filename, ".")
-	name := parts[0]
-	extension := parts[1]
-	// todo: file may have no extension
-	for len(name) < 8 {
-		name += " "
-	}
-	for len(extension) < 3 {
-		extension += " "
-	}
-	user := 0
-	// todo: split user from filename
+func displayText(bytes []byte) {
+	seenCtrlZ := false
 
-	// collect records in extent order
+	for _, b := range bytes {
+		if b == 0x1A {
+			seenCtrlZ = true
+		} else {
+			if !seenCtrlZ {
+				fmt.Print(string(b))
+			}
+		}
+	}
+}
+
+func displayRecords(fh *os.File, recordNumbers []int) {
+	// for each record in block
+	for _, record := range recordNumbers {
+		// read data
+		recordBytes, err := readRecord(fh, record)
+
+		if err != nil {
+			fmt.Println("Could not read record")
+		} else {
+			// print data
+			displayText(recordBytes)
+		}
+	}
+}
+
+func getRecordNumbers(fh *os.File, directory []byte, user int, name string, extension string) []int {
+	recordNumbers := []int{}
+
 	entrySize := 32
 	directoryFirstRecord := 60
 
-	extent := 0
 	recordsPerBlock := 128
 	done := false
-	seenCtrlZ := false
 
-	for extent < 128 && !done && !seenCtrlZ {
+	extent := 0
+	for extent < 128 && !done {
 		index := 0
 		found := false
 
@@ -427,30 +442,8 @@ func typeCommand(fh *os.File, directory []byte, filename string) {
 					done = true
 				}
 
-				records := allRecords(blocks, directoryFirstRecord, recordCount)
-
-				// for each record in block
-				for _, record := range records {
-					// read data
-					recordBytes, err := readRecord(fh, record)
-
-					if err != nil {
-						fmt.Println("Could not read record")
-					} else {
-						// print data
-						// text := string(recordBytes)
-						// fmt.Print(text)
-						for _, b := range recordBytes {
-							if b == 0x1A {
-								seenCtrlZ = true
-							} else {
-								if !seenCtrlZ {
-									fmt.Print(string(b))
-								}
-							}
-						}
-					}
-				}
+				blockRecordNumbers := allRecords(blocks, directoryFirstRecord, recordCount)
+				recordNumbers = append(recordNumbers, blockRecordNumbers...)
 			}
 
 			index += entrySize
@@ -462,6 +455,34 @@ func typeCommand(fh *os.File, directory []byte, filename string) {
 			done = true
 		}
 	}
+
+	return recordNumbers
+}
+
+func splitFilename(filename string) (int, string, string) {
+	// split filename into user, file, and name
+	parts := strings.Split(filename, ".")
+	name := parts[0]
+	extension := parts[1]
+	// todo: file may have no extension
+	for len(name) < 8 {
+		name += " "
+	}
+	for len(extension) < 3 {
+		extension += " "
+	}
+	user := 0
+	// todo: split user from filename
+
+	return user, name, extension
+}
+
+func typeCommand(fh *os.File, directory []byte, filename string) {
+	user, name, extension := splitFilename(filename)
+
+	recordNumbers := getRecordNumbers(fh, directory, user, name, extension)
+
+	displayRecords(fh, recordNumbers)
 
 	fmt.Println()
 	fmt.Println()
