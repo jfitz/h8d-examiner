@@ -412,6 +412,23 @@ func displayRecords(fh *os.File, recordNumbers []int) {
 	}
 }
 
+func dumpRecords(fh *os.File, recordNumbers []int) {
+	// for each record in block
+	for i, record := range recordNumbers {
+		fmt.Printf("RECORD: %d\n", i)
+		// read data
+		recordBytes, err := readRecord(fh, record)
+
+		if err != nil {
+			fmt.Println("Could not read record")
+		} else {
+			// print data
+			utils.Dump(recordBytes, i, "hex")
+			fmt.Println()
+		}
+	}
+}
+
 func getRecordNumbers(fh *os.File, directory []byte, user int, name string, extension string) []int {
 	recordNumbers := []int{}
 
@@ -422,6 +439,7 @@ func getRecordNumbers(fh *os.File, directory []byte, user int, name string, exte
 	done := false
 
 	extent := 0
+	filename := name + "." + extension
 	for extent < 128 && !done {
 		index := 0
 		found := false
@@ -431,7 +449,7 @@ func getRecordNumbers(fh *os.File, directory []byte, user int, name string, exte
 			entry := DirectoryEntry{}
 			entry.Init(directory[index:end])
 
-			if int(entry.User) == user && string(entry.Name[:]) == name && string(entry.Extension[:]) == extension && int(entry.Extent) == extent {
+			if int(entry.User) == user && entry.nameToText() == filename && int(entry.Extent) == extent {
 				found = true
 
 				blocks := entry.allocationBlocks()
@@ -463,16 +481,10 @@ func splitFilename(filename string) (int, string, string) {
 	// split filename into user, file, and name
 	parts := strings.Split(filename, ".")
 	name := parts[0]
-	extension := parts[1]
 	// todo: file may have no extension
-	for len(name) < 8 {
-		name += " "
-	}
-	for len(extension) < 3 {
-		extension += " "
-	}
-	user := 0
+	extension := parts[1]
 	// todo: split user from filename
+	user := 0
 
 	return user, name, extension
 }
@@ -483,6 +495,17 @@ func typeCommand(fh *os.File, directory []byte, filename string) {
 	recordNumbers := getRecordNumbers(fh, directory, user, name, extension)
 
 	displayRecords(fh, recordNumbers)
+
+	fmt.Println()
+	fmt.Println()
+}
+
+func dumpCommand(fh *os.File, directory []byte, filename string) {
+	user, name, extension := splitFilename(filename)
+
+	recordNumbers := getRecordNumbers(fh, directory, user, name, extension)
+
+	dumpRecords(fh, recordNumbers)
 
 	fmt.Println()
 	fmt.Println()
@@ -532,7 +555,7 @@ func Menu(reader *bufio.Reader, fh *os.File) {
 		} else if parts[0] == "type" {
 			typeCommand(fh, directory, parts[1])
 		} else if parts[0] == "dump" {
-			fmt.Println("not implemented")
+			dumpCommand(fh, directory, parts[1])
 		} else if parts[0] == "copy" {
 			fmt.Println("not implemented")
 		} else {
