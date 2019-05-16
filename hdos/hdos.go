@@ -12,6 +12,16 @@ import (
 	"strings"
 )
 
+func help() {
+	fmt.Println("stats - display statistics")
+	fmt.Println("cat   - list files on disk")
+	fmt.Println("dir   - same as CAT")
+	fmt.Println("type  - display contents of file")
+	fmt.Println("dump  - dump contents of file")
+	fmt.Println("copy  - copy file to your filesystem")
+	fmt.Println("exit  - exit to main level")
+}
+
 func readSectorPair(fh *os.File, sectorIndex int) ([]byte, error) {
 	// read 2 sectors (512 bytes)
 	first, err := utils.ReadSector(fh, sectorIndex)
@@ -94,16 +104,6 @@ func flagsToText(flags byte) string {
 	}
 
 	return text
-}
-
-func help() {
-	fmt.Println("stats - display statistics")
-	fmt.Println("cat   - list files on disk")
-	fmt.Println("dir   - same as CAT")
-	fmt.Println("type  - display contents of file")
-	fmt.Println("dump  - dump contents of file")
-	fmt.Println("copy  - copy file to your filesystem")
-	fmt.Println("exit  - exit to main level")
 }
 
 func printDirectoryBlock(directoryBlock []byte, grtSector []byte, sectorsPerGroup int) {
@@ -301,6 +301,32 @@ func typeCommand(fh *os.File, label Label, grtSector []byte, filename string) {
 	fmt.Println()
 }
 
+func dumpCommand(fh *os.File, label Label, grtSector []byte, filename string) {
+	sectorNumbers, found := fileSectors(fh, label, grtSector, filename)
+
+	if found {
+		fmt.Println()
+
+		// for each sector
+		for i, sectorNumber := range sectorNumbers {
+			sectorBytes, err := utils.ReadSector(fh, sectorNumber)
+			if err != nil {
+				fmt.Println("Count not read sector")
+			} else {
+				utils.Dump(sectorBytes, i, "octal")
+				fmt.Println()
+			}
+		}
+
+		fmt.Println()
+		fmt.Println()
+	} else {
+		fmt.Println("File not found")
+	}
+
+	fmt.Println()
+}
+
 func Menu(reader *bufio.Reader, fh *os.File) {
 	// read sector 9
 	sectorIndex := 9
@@ -356,7 +382,7 @@ func Menu(reader *bufio.Reader, fh *os.File) {
 		} else if parts[0] == "type" && len(parts) == 2 {
 			typeCommand(fh, label, grtSector, parts[1])
 		} else if parts[0] == "dump" {
-			fmt.Println("not implemented")
+			dumpCommand(fh, label, grtSector, parts[1])
 		} else if parts[0] == "copy" {
 			fmt.Println("not implemented")
 		} else {
