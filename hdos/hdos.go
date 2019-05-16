@@ -13,13 +13,13 @@ import (
 )
 
 func help() {
-	fmt.Println("stats - display statistics")
-	fmt.Println("cat   - list files on disk")
-	fmt.Println("dir   - same as CAT")
-	fmt.Println("type  - display contents of file")
-	fmt.Println("dump  - dump contents of file")
-	fmt.Println("copy  - copy file to your filesystem")
-	fmt.Println("exit  - exit to main level")
+	fmt.Println("stats  - display statistics")
+	fmt.Println("cat    - list files on disk")
+	fmt.Println("dir    - same as CAT")
+	fmt.Println("type   - display contents of file")
+	fmt.Println("dump   - dump contents of file")
+	fmt.Println("export - copy file to your filesystem")
+	fmt.Println("exit   - exit to main level")
 }
 
 func readSectorPair(fh *os.File, sectorIndex int) ([]byte, error) {
@@ -327,6 +327,41 @@ func dumpCommand(fh *os.File, label Label, grtSector []byte, filename string) {
 	fmt.Println()
 }
 
+func exportCommand(fh *os.File, label Label, grtSector []byte, filename string) {
+	sectorNumbers, found := fileSectors(fh, label, grtSector, filename)
+
+	if found {
+		fmt.Println("Exporting file...")
+
+		// open file
+		f, err := os.Create(filename)
+		defer f.Close()
+
+		if err != nil {
+			fmt.Println("Cannot open file")
+			return
+		}
+
+		// for each sector
+		for _, sectorNumber := range sectorNumbers {
+			sectorBytes, err := utils.ReadSector(fh, sectorNumber)
+			if err != nil {
+				fmt.Println("Count not read sector")
+			} else {
+				// write sector
+				f.Write(sectorBytes)
+			}
+		}
+
+		fmt.Println("Done")
+		fmt.Println()
+	} else {
+		fmt.Println("File not found")
+	}
+
+	fmt.Println()
+}
+
 func Menu(reader *bufio.Reader, fh *os.File) {
 	// read sector 9
 	sectorIndex := 9
@@ -383,8 +418,8 @@ func Menu(reader *bufio.Reader, fh *os.File) {
 			typeCommand(fh, label, grtSector, parts[1])
 		} else if parts[0] == "dump" {
 			dumpCommand(fh, label, grtSector, parts[1])
-		} else if parts[0] == "copy" {
-			fmt.Println("not implemented")
+		} else if parts[0] == "export" {
+			exportCommand(fh, label, grtSector, parts[1])
 		} else {
 			help()
 			fmt.Println()

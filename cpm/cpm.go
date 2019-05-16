@@ -12,14 +12,14 @@ import (
 )
 
 func help() {
-	fmt.Println("stats - display statistics")
-	fmt.Println("cat   - list directory entries")
-	fmt.Println("cats  - list directory entries and details")
-	fmt.Println("dir   - list files on disk")
-	fmt.Println("type  - display contents of file")
-	fmt.Println("dump  - dump contents of file")
-	fmt.Println("copy  - copy file to your filesystem")
-	fmt.Println("exit  - exit to main level")
+	fmt.Println("stats  - display statistics")
+	fmt.Println("cat    - list directory entries")
+	fmt.Println("cats   - list directory entries and details")
+	fmt.Println("dir    - list files on disk")
+	fmt.Println("type   - display contents of file")
+	fmt.Println("dump   - dump contents of file")
+	fmt.Println("export - copy file to your filesystem")
+	fmt.Println("exit   - exit to main level")
 }
 
 func blockToRecords(block int, dirBase int) []int {
@@ -429,6 +429,34 @@ func dumpRecords(fh *os.File, recordNumbers []int) {
 	}
 }
 
+func exportRecords(fh *os.File, recordNumbers []int, filename string) {
+	// open file
+	f, err := os.Create(filename)
+	defer f.Close()
+
+	if err != nil {
+		fmt.Println("Cannot open file")
+		return
+	}
+
+	// for each record in block
+	for _, record := range recordNumbers {
+
+		// read data
+		recordBytes, err := readRecord(fh, record)
+
+		if err != nil {
+			fmt.Println("Could not read record")
+		} else {
+			// print data
+			f.Write(recordBytes)
+		}
+	}
+
+	fmt.Println("Done")
+	fmt.Println()
+}
+
 func getRecordNumbers(fh *os.File, directory []byte, user int, name string, extension string) ([]int, bool) {
 	recordNumbers := []int{}
 
@@ -521,6 +549,21 @@ func dumpCommand(fh *os.File, directory []byte, filename string) {
 	fmt.Println()
 }
 
+func exportCommand(fh *os.File, directory []byte, filename string) {
+	user, name, extension := splitFilename(filename)
+
+	recordNumbers, found := getRecordNumbers(fh, directory, user, name, extension)
+
+	if found {
+		exportRecords(fh, recordNumbers, filename)
+	} else {
+		fmt.Println("File not found")
+	}
+
+	fmt.Println()
+	fmt.Println()
+}
+
 func Menu(reader *bufio.Reader, fh *os.File) {
 	// read sector 30 and 34 (the directory on an H-17 SSSD disk)
 	sectorIndex := 30
@@ -566,8 +609,8 @@ func Menu(reader *bufio.Reader, fh *os.File) {
 			typeCommand(fh, directory, parts[1])
 		} else if parts[0] == "dump" {
 			dumpCommand(fh, directory, parts[1])
-		} else if parts[0] == "copy" {
-			fmt.Println("not implemented")
+		} else if parts[0] == "export" {
+			exportCommand(fh, directory, parts[1])
 		} else {
 			help()
 			fmt.Println()
