@@ -429,7 +429,7 @@ func dumpRecords(fh *os.File, recordNumbers []int) {
 	}
 }
 
-func getRecordNumbers(fh *os.File, directory []byte, user int, name string, extension string) []int {
+func getRecordNumbers(fh *os.File, directory []byte, user int, name string, extension string) ([]int, bool) {
 	recordNumbers := []int{}
 
 	entrySize := 32
@@ -438,6 +438,7 @@ func getRecordNumbers(fh *os.File, directory []byte, user int, name string, exte
 	recordsPerBlock := 128
 	done := false
 
+	anyFound := false
 	extent := 0
 	filename := name + "." + extension
 	for extent < 128 && !done {
@@ -468,13 +469,14 @@ func getRecordNumbers(fh *os.File, directory []byte, user int, name string, exte
 		}
 
 		if found {
+			anyFound = true
 			extent += 1
 		} else {
 			done = true
 		}
 	}
 
-	return recordNumbers
+	return recordNumbers, anyFound
 }
 
 func splitFilename(filename string) (int, string, string) {
@@ -492,9 +494,13 @@ func splitFilename(filename string) (int, string, string) {
 func typeCommand(fh *os.File, directory []byte, filename string) {
 	user, name, extension := splitFilename(filename)
 
-	recordNumbers := getRecordNumbers(fh, directory, user, name, extension)
+	recordNumbers, found := getRecordNumbers(fh, directory, user, name, extension)
 
-	displayRecords(fh, recordNumbers)
+	if found {
+		displayRecords(fh, recordNumbers)
+	} else {
+		fmt.Println("File not found")
+	}
 
 	fmt.Println()
 	fmt.Println()
@@ -503,9 +509,13 @@ func typeCommand(fh *os.File, directory []byte, filename string) {
 func dumpCommand(fh *os.File, directory []byte, filename string) {
 	user, name, extension := splitFilename(filename)
 
-	recordNumbers := getRecordNumbers(fh, directory, user, name, extension)
+	recordNumbers, found := getRecordNumbers(fh, directory, user, name, extension)
 
-	dumpRecords(fh, recordNumbers)
+	if found {
+		dumpRecords(fh, recordNumbers)
+	} else {
+		fmt.Println("File not found")
+	}
 
 	fmt.Println()
 	fmt.Println()

@@ -278,12 +278,12 @@ func fileSectors(fh *os.File, label Label, grtSector []byte, wantedFilename stri
 }
 
 func typeCommand(fh *os.File, label Label, grtSector []byte, filename string) {
-	sectors, found := fileSectors(fh, label, grtSector, filename)
+	sectorNumbers, found := fileSectors(fh, label, grtSector, filename)
 
 	if found {
 		// for each sector
-		for _, sector := range sectors {
-			sectorBytes, err := utils.ReadSector(fh, sector)
+		for _, sectorNumber := range sectorNumbers {
+			sectorBytes, err := utils.ReadSector(fh, sectorNumber)
 			if err != nil {
 				fmt.Println("Count not read sector")
 			} else {
