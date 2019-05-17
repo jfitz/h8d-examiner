@@ -5,6 +5,7 @@ package cpm
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"github.com/jfitz/h8d-examiner/utils"
 	"os"
@@ -430,6 +431,8 @@ func dumpRecords(fh *os.File, recordNumbers []int) {
 }
 
 func exportRecords(fh *os.File, recordNumbers []int, filename string, exportDirectory string) {
+	fmt.Println("Exporting file...")
+
 	// open file
 	exportFilename := exportDirectory + "/" + filename
 	f, err := os.Create(exportFilename)
@@ -563,23 +566,41 @@ func exportCommand(fh *os.File, directory []byte, filename string, exportDirecto
 	fmt.Println()
 }
 
-func Menu(reader *bufio.Reader, fh *os.File, exportDirectory string) {
+func readDirectory(fh *os.File) ([]byte, error) {
 	// read sector 30 and 34 (the directory on an H-17 SSSD disk)
 	sectorIndex := 30
 	sector1, err := utils.ReadSector(fh, sectorIndex)
 	if err != nil {
-		fmt.Println("Cannot read sector 30")
-		return
+		return []byte{}, errors.New("Cannot read sector 30")
 	}
 
 	sectorIndex = 34
 	sector2, err := utils.ReadSector(fh, sectorIndex)
 	if err != nil {
-		fmt.Println("Cannot read sector 34")
-		return
+		return []byte{}, errors.New("Cannot read sector 34")
 	}
 
 	directory := append(sector1, sector2...)
+
+	return directory, nil
+}
+
+func Export(fh *os.File, exportSpec string, exportDirectory string) {
+	directory, err := readDirectory(fh)
+	if err != nil {
+		fmt.Println(err.Error)
+		return
+	}
+
+	exportCommand(fh, directory, exportSpec, exportDirectory)
+}
+
+func Menu(reader *bufio.Reader, fh *os.File, exportDirectory string) {
+	directory, err := readDirectory(fh)
+	if err != nil {
+		fmt.Println(err.Error)
+		return
+	}
 
 	// prompt for command and process it
 	done := false

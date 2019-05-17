@@ -25,13 +25,17 @@ func mainHelp() {
 
 func main() {
 	exportDirectoryPtr := flag.String("directory", ".", "Export to directory")
-	// exportSpecPtr := flag.String("export", "*.*", "Export file specification")
+	exportSpecPtr := flag.String("export", "", "Export file specification")
+	hdosDiskPtr := flag.Bool("hdos", false, "Interpret as HDOS disk")
+	cpmDiskPtr := flag.Bool("cpm", false, "Interpret as CP/M disk")
 
 	// parse command line options
 	flag.Parse()
 
 	exportDirectory := *exportDirectoryPtr
-	//	exportSpec := *exportSpecPtr
+	exportSpec := *exportSpecPtr
+	hdosDisk := *hdosDiskPtr
+	cpmDisk := *cpmDiskPtr
 
 	args := flag.Args()
 
@@ -58,38 +62,53 @@ func main() {
 	fileSectorCount := fileSize / 256
 	fileLastSector := fileSectorCount - 1
 
-	// prompt for command and process it
-	for {
-		// display prompt and read command
-		fmt.Printf("> ")
-		line, err := reader.ReadString('\n')
-		utils.CheckAndExit(err)
-
-		// process the command
-		line = strings.TrimSpace(line)
-
-		if line == "quit" {
-			fmt.Println()
-			os.Exit(0)
-		} else if line == "stats" {
-			fmt.Printf("Image: %s\n", fileName)
-			fmt.Printf("Size: %d (%dK)\n", fileSize, fileSizeInK)
-			fmt.Printf("Last sector: %04XH (%d)\n", fileLastSector, fileLastSector)
-			fmt.Println()
-		} else if line == "sector" {
-			fmt.Println()
-			sector.Menu(reader, fh)
-		} else if line == "hdos" {
-			fmt.Println()
-			hdos.Menu(reader, fh, exportDirectory)
-		} else if line == "cp/m" {
-			fmt.Println()
-			cpm.Menu(reader, fh, exportDirectory)
-		} else if line == "RESETTERM" {
-			fmt.Println("\x1bc")
+	if len(exportSpec) > 0 {
+		// export the specified file(s)
+		// then exit
+		if hdosDisk && cpmDisk {
+			fmt.Println("Specify only one of HDOS and CP/M")
+		} else if hdosDisk {
+			hdos.Export(fh, exportSpec, exportDirectory)
+		} else if cpmDisk {
+			cpm.Export(fh, exportSpec, exportDirectory)
 		} else {
-			mainHelp()
-			fmt.Println()
+			fmt.Println("Must specify either HDOS or CP/M")
+		}
+	} else {
+		// prompt for command and process it
+		// repeat until 'quit' command
+		for {
+			// display prompt and read command
+			fmt.Printf("> ")
+			line, err := reader.ReadString('\n')
+			utils.CheckAndExit(err)
+
+			// process the command
+			line = strings.TrimSpace(line)
+
+			if line == "quit" {
+				fmt.Println()
+				os.Exit(0)
+			} else if line == "stats" {
+				fmt.Printf("Image: %s\n", fileName)
+				fmt.Printf("Size: %d (%dK)\n", fileSize, fileSizeInK)
+				fmt.Printf("Last sector: %04XH (%d)\n", fileLastSector, fileLastSector)
+				fmt.Println()
+			} else if line == "sector" {
+				fmt.Println()
+				sector.Menu(reader, fh)
+			} else if line == "hdos" {
+				fmt.Println()
+				hdos.Menu(reader, fh, exportDirectory)
+			} else if line == "cp/m" {
+				fmt.Println()
+				cpm.Menu(reader, fh, exportDirectory)
+			} else if line == "RESETTERM" {
+				fmt.Println("\x1bc")
+			} else {
+				mainHelp()
+				fmt.Println()
+			}
 		}
 	}
 }

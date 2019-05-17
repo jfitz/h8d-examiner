@@ -362,17 +362,41 @@ func exportCommand(fh *os.File, label Label, grtSector []byte, filename string, 
 	fmt.Println()
 }
 
-func Menu(reader *bufio.Reader, fh *os.File, exportDirectory string) {
+func readLabel(fh *os.File) (Label, error) {
+	label := Label{}
+
 	// read sector 9
 	sectorIndex := 9
 	sector, err := utils.ReadSector(fh, sectorIndex)
 	if err != nil {
-		fmt.Println("Cannot read sector 9")
+		return label, errors.New("Cannot read sector 9")
+	}
+
+	label.Init(sector)
+
+	return label, nil
+}
+
+func Export(fh *os.File, exportSpec string, exportDirectory string) {
+	label, err := readLabel(fh)
+	if err != nil {
+		fmt.Println(err.Error)
 		return
 	}
 
-	label := Label{}
-	label.Init(sector)
+	// read Group Reservation Table (GRT)
+	grtSector, err := utils.ReadSector(fh, label.Grt)
+	utils.CheckAndExit(err)
+
+	exportCommand(fh, label, grtSector, exportSpec, exportDirectory)
+}
+
+func Menu(reader *bufio.Reader, fh *os.File, exportDirectory string) {
+	label, err := readLabel(fh)
+	if err != nil {
+		fmt.Println(err.Error)
+		return
+	}
 
 	// check text label
 	labelError := false
