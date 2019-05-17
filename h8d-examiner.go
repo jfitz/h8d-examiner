@@ -24,8 +24,15 @@ func mainHelp() {
 }
 
 func main() {
+	exportDirectoryPtr := flag.String("directory", ".", "Export to directory")
+	// exportSpecPtr := flag.String("export", "*.*", "Export file specification")
+
 	// parse command line options
 	flag.Parse()
+
+	exportDirectory := *exportDirectoryPtr
+	//	exportSpec := *exportSpecPtr
+
 	args := flag.Args()
 
 	if len(args) == 0 {
@@ -74,10 +81,10 @@ func main() {
 			sector.Menu(reader, fh)
 		} else if line == "hdos" {
 			fmt.Println()
-			hdos.Menu(reader, fh)
+			hdos.Menu(reader, fh, exportDirectory)
 		} else if line == "cp/m" {
 			fmt.Println()
-			cpm.Menu(reader, fh)
+			cpm.Menu(reader, fh, exportDirectory)
 		} else if line == "RESETTERM" {
 			fmt.Println("\x1bc")
 		} else {

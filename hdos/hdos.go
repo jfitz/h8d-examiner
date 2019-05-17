@@ -327,14 +327,15 @@ func dumpCommand(fh *os.File, label Label, grtSector []byte, filename string) {
 	fmt.Println()
 }
 
-func exportCommand(fh *os.File, label Label, grtSector []byte, filename string) {
+func exportCommand(fh *os.File, label Label, grtSector []byte, filename string, exportDirectory string) {
 	sectorNumbers, found := fileSectors(fh, label, grtSector, filename)
 
 	if found {
 		fmt.Println("Exporting file...")
 
 		// open file
-		f, err := os.Create(filename)
+		exportFilename := exportDirectory + "/" + filename
+		f, err := os.Create(exportFilename)
 		defer f.Close()
 
 		if err != nil {
@@ -354,7 +355,6 @@ func exportCommand(fh *os.File, label Label, grtSector []byte, filename string) 
 		}
 
 		fmt.Println("Done")
-		fmt.Println()
 	} else {
 		fmt.Println("File not found")
 	}
@@ -362,7 +362,7 @@ func exportCommand(fh *os.File, label Label, grtSector []byte, filename string) 
 	fmt.Println()
 }
 
-func Menu(reader *bufio.Reader, fh *os.File) {
+func Menu(reader *bufio.Reader, fh *os.File, exportDirectory string) {
 	// read sector 9
 	sectorIndex := 9
 	sector, err := utils.ReadSector(fh, sectorIndex)
@@ -419,7 +419,7 @@ func Menu(reader *bufio.Reader, fh *os.File) {
 		} else if parts[0] == "dump" {
 			dumpCommand(fh, label, grtSector, parts[1])
 		} else if parts[0] == "export" {
-			exportCommand(fh, label, grtSector, parts[1])
+			exportCommand(fh, label, grtSector, parts[1], exportDirectory)
 		} else {
 			help()
 			fmt.Println()
