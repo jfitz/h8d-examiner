@@ -273,7 +273,7 @@ func (entry DirectoryEntry) allocationBlocks() []int {
 
 // print detailed catalog from directory
 func catCommand(fh *os.File, directory []byte, details bool) {
-	fmt.Println("User Name          Extent Flags         Records")
+	fmt.Println("User Name          Extent Flags         Records Blocks")
 
 	index := 0
 	entrySize := 32
@@ -290,16 +290,17 @@ func catCommand(fh *os.File, directory []byte, details bool) {
 		// todo: user 0xE5 print deleted format
 		// todo: else print alternate format
 		text := entry.toText()
-		fmt.Println(text)
+		fmt.Print(text)
 
-		if details {
-			// diag: print block numbers and record numbers
-			if entry.normalName() && entry.normalExtent() {
-				// block numbers
-				blocks := entry.allocationBlocks()
-				fmt.Printf(" Blocks: % 02X\n", blocks)
+		// print block numbers and maybe record numbers
+		if entry.normalName() && entry.normalExtent() {
+			// block numbers
+			blocks := entry.allocationBlocks()
+			fmt.Printf(" % 02X", blocks)
 
+			if details {
 				// record numbers
+				fmt.Println()
 				recordCount := int(entry.RecordCount)
 				records := allRecords(blocks, directoryFirstRecord, recordCount)
 
@@ -307,6 +308,8 @@ func catCommand(fh *os.File, directory []byte, details bool) {
 				fmt.Println(recordText)
 			}
 		}
+
+		fmt.Println()
 
 		index += entrySize
 	}
