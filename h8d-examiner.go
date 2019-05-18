@@ -26,6 +26,7 @@ func mainHelp() {
 func main() {
 	exportDirectoryPtr := flag.String("directory", ".", "Export to directory")
 	exportSpecPtr := flag.String("export", "", "Export file specification")
+	catSpecPtr := flag.Bool("cat", false, "List files in disk image")
 	hdosDiskPtr := flag.Bool("hdos", false, "Interpret as HDOS disk")
 	cpmDiskPtr := flag.Bool("cpm", false, "Interpret as CP/M disk")
 
@@ -34,6 +35,7 @@ func main() {
 
 	exportDirectory := *exportDirectoryPtr
 	exportSpec := *exportSpecPtr
+	catSpec := *catSpecPtr
 	hdosDisk := *hdosDiskPtr
 	cpmDisk := *cpmDiskPtr
 
@@ -62,21 +64,40 @@ func main() {
 	fileSectorCount := fileSize / 256
 	fileLastSector := fileSectorCount - 1
 
-	if len(exportSpec) > 0 {
-		// export the specified file(s)
-		// then exit
-		if hdosDisk && cpmDisk {
-			fmt.Println("Specify only one of HDOS and CP/M")
-		} else if hdosDisk {
-			hdos.Export(fh, exportSpec, exportDirectory)
-		} else if cpmDisk {
-			cpm.Export(fh, exportSpec, exportDirectory)
+	if len(exportSpec) > 0 || catSpec {
+		// batch mode - run command and exit
+
+		if len(exportSpec) > 0 && catSpec {
+			fmt.Println("Specify only one of EXPORT or CAT")
+		} else if len(exportSpec) > 0 {
+			// export the specified file(s)
+			if hdosDisk && cpmDisk {
+				fmt.Println("Specify only one of HDOS and CP/M")
+			} else if hdosDisk {
+				hdos.Export(fh, exportSpec, exportDirectory)
+			} else if cpmDisk {
+				cpm.Export(fh, exportSpec, exportDirectory)
+			} else {
+				fmt.Println("Must specify either HDOS or CP/M")
+			}
+		} else if catSpec {
+			// list the specified file(s)
+			if hdosDisk && cpmDisk {
+				fmt.Println("Specify only one of HDOS and CP/M")
+			} else if hdosDisk {
+				hdos.Cat(fh)
+			} else if cpmDisk {
+				cpm.Cat(fh)
+			} else {
+				fmt.Println("Must specify either HDOS or CP/M")
+			}
 		} else {
-			fmt.Println("Must specify either HDOS or CP/M")
+			fmt.Println("Must specify export specification or cat specification")
 		}
 	} else {
 		// prompt for command and process it
 		// repeat until 'quit' command
+
 		for {
 			// display prompt and read command
 			fmt.Printf("> ")

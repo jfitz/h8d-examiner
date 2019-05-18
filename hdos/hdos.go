@@ -391,6 +391,20 @@ func Export(fh *os.File, exportSpec string, exportDirectory string) {
 	exportCommand(fh, label, grtSector, exportSpec, exportDirectory)
 }
 
+func Cat(fh *os.File) {
+	label, err := readLabel(fh)
+	if err != nil {
+		fmt.Println(err.Error)
+		return
+	}
+
+	// read Group Reservation Table (GRT)
+	grtSector, err := utils.ReadSector(fh, label.Grt)
+	utils.CheckAndExit(err)
+
+	dirCommand(fh, label, grtSector)
+}
+
 func Menu(reader *bufio.Reader, fh *os.File, exportDirectory string) {
 	label, err := readLabel(fh)
 	if err != nil {

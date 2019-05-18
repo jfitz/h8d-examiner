@@ -598,6 +598,16 @@ func Export(fh *os.File, exportSpec string, exportDirectory string) {
 	exportCommand(fh, directory, exportSpec, exportDirectory)
 }
 
+func Cat(fh *os.File) {
+	directory, err := readDirectory(fh)
+	if err != nil {
+		fmt.Println(err.Error)
+		return
+	}
+
+	dirCommand(fh, directory)
+}
+
 func Menu(reader *bufio.Reader, fh *os.File, exportDirectory string) {
 	directory, err := readDirectory(fh)
 	if err != nil {
