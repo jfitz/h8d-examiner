@@ -296,7 +296,7 @@ func catCommand(fh *os.File, directory []byte, details bool) {
 		if entry.normalName() && entry.normalExtent() {
 			// block numbers
 			blocks := entry.allocationBlocks()
-			fmt.Printf(" % 02X", blocks)
+			fmt.Printf("   %02X", blocks)
 
 			if details {
 				// record numbers
