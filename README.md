@@ -11,3 +11,11 @@ view the contents of files, and export files to the local file system. Files may
 Batch mode
 
 h8d-examiner can list files and export a file from the command line, with no interaction.
+
+# ws2text
+Read a Wordstar file and convert to plain text.
+
+A simple program; it merely strips the high bit from each byte in a file.
+
+# imd-unpack
+Read an IMD file and unpack it to an H8D file.

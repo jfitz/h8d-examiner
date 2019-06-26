@@ -83,7 +83,13 @@ func Dump(sector []byte, sectorIndex int, base string) error {
 
 	// print data in lines of 16 bytes
 	for i := 0; i < len(sector); i += 16 {
-		bytes := sector[i : i+16]
+		upper := i + 16
+
+		if upper > len(sector) {
+			upper = len(sector)
+		}
+
+		bytes := sector[i:upper]
 
 		// print in hex or octal
 		if base == "hex" {
