@@ -16,26 +16,30 @@ func main() {
 
 	args := flag.Args()
 
-	if len(args) == 0 {
-		fmt.Println("No file specified")
+	if len(args) < 2 {
+		fmt.Println("Usage: imd-unpack source-file destination-file")
 		os.Exit(1)
 	}
 
-	// get file name
-	fileName := args[0]
+	// get file names
+	source_fileName := args[0]
+	dest_filename := args[1]
 
-	// open the file
-	fh, err := os.Open(fileName)
+	// open the files
+	sfh, err := os.Open(source_fileName)
 	utils.CheckAndExit(err)
 
-	defer fh.Close()
+	defer sfh.Close()
+
+	dfh, err := os.Create(dest_filename)
+	utils.CheckAndExit(err)
 
 	// read IMD header
 	header := ""
 	b := make([]byte, 1)
 
 	for b[0] != 0x1a {
-		_, err = fh.Read(b)
+		_, err = sfh.Read(b)
 		utils.CheckAndExit(err)
 
 		b0 := b[0]
@@ -54,12 +58,12 @@ func main() {
 		if index%10 == 0 {
 			// read extra data at the start of each 10-sector block
 			postamble := make([]byte, 15)
-			_, err = fh.Read(postamble)
+			_, err = sfh.Read(postamble)
 			utils.CheckAndExit(err)
 		}
 
 		// read byte code
-		_, err = fh.Read(b)
+		_, err = sfh.Read(b)
 		utils.CheckAndExit(err)
 
 		b0 := b[0]
@@ -69,20 +73,27 @@ func main() {
 			// read 256 bytes and dump
 			length := 256
 			sector := make([]byte, length)
-			_, err = fh.Read(sector)
+			_, err = sfh.Read(sector)
 			utils.CheckAndExit(err)
 
-			utils.Dump(sector, index, "hex")
+			dfh.Write(sector)
 			index += 1
 		} else if b0 == 0x02 {
 			// read 1 byte and replicate 256 times and dump
-			_, err = fh.Read(b)
+			_, err = sfh.Read(b)
 			utils.CheckAndExit(err)
 
-			fmt.Printf("Sector: %04XH (%d): (compressed)\n", index, index)
+			b0 = b[0]
+			length := 256
+			sector := make([]byte, length)
+			for i := range sector {
+				sector[i] = b0
+			}
+
+			dfh.Write(sector)
 			index += 1
 		} else {
-			pos, err := fh.Seek(0, os.SEEK_CUR)
+			pos, err := sfh.Seek(0, os.SEEK_CUR)
 			utils.CheckAndExit(err)
 
 			fmt.Printf("Unknown byte code %02X at position %04X\n", b0, pos)
