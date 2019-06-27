@@ -10,6 +10,37 @@ import (
 	"os"
 )
 
+func read_normal_sector(fh *os.File) ([]byte, error) {
+	// read 256 bytes and dump
+	length := 256
+	sector := make([]byte, length)
+
+	_, err := fh.Read(sector)
+	if err != nil {
+		return []byte{}, err
+	}
+
+	return sector, nil
+}
+
+func read_compressed_sector(fh *os.File) ([]byte, error) {
+	// read 1 byte and replicate 256 times and dump
+	b := make([]byte, 1)
+	_, err := fh.Read(b)
+	if err != nil {
+		return []byte{}, err
+	}
+
+	b0 := b[0]
+	length := 256
+	sector := make([]byte, length)
+	for i := range sector {
+		sector[i] = b0
+	}
+
+	return sector, nil
+}
+
 func main() {
 	// parse command line options
 	flag.Parse()
@@ -44,6 +75,8 @@ func main() {
 
 		b0 := b[0]
 
+		// TODO: strip non-printable characters
+
 		header += string(b0)
 	}
 
@@ -53,14 +86,26 @@ func main() {
 	eof := false
 	index := 0
 
+	// TODO: detect EOF on sfh
+
 	for !eof {
-		// if index mod 10 == 0, skip 15 bytes
+		// if index mod 10 == 0, read track header
+		// TODO: use number of sectors to find next header (start with zero)
 		if index%10 == 0 {
-			// read extra data at the start of each 10-sector block
-			postamble := make([]byte, 15)
-			_, err = sfh.Read(postamble)
+			// read track header
+			header := make([]byte, 15)
+			_, err = sfh.Read(header)
 			utils.CheckAndExit(err)
+
+			// side (0x01 or 0x02)
+			// track (0x00 to 0x27)
+			// 00
+			// number of sectors (0x0A)
+			// first sector (0x01)
+			// sector map[number of sectors]
 		}
+
+		// TODO: read entire track, unmap sectors using map, then re-map for Heath H-17 CP/M sequence
 
 		// read byte code
 		_, err = sfh.Read(b)
@@ -70,25 +115,14 @@ func main() {
 
 		// validate byte code
 		if b0 == 0x01 {
-			// read 256 bytes and dump
-			length := 256
-			sector := make([]byte, length)
-			_, err = sfh.Read(sector)
+			sector, err := read_normal_sector(sfh)
 			utils.CheckAndExit(err)
 
 			dfh.Write(sector)
 			index += 1
 		} else if b0 == 0x02 {
-			// read 1 byte and replicate 256 times and dump
-			_, err = sfh.Read(b)
+			sector, err := read_compressed_sector(sfh)
 			utils.CheckAndExit(err)
-
-			b0 = b[0]
-			length := 256
-			sector := make([]byte, length)
-			for i := range sector {
-				sector[i] = b0
-			}
 
 			dfh.Write(sector)
 			index += 1
