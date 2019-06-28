@@ -44,13 +44,16 @@ func read_compressed_sector(fh *os.File) ([]byte, error) {
 }
 
 func read_sector(fh *os.File) ([]byte, error) {
+	sector := make([]byte, 0)
+
 	// read byte code
 	b := make([]byte, 1)
 	_, err := fh.Read(b)
-	utils.CheckAndExit(err)
+	if err != nil {
+		return sector, err
+	}
 
 	b0 := b[0]
-	sector := make([]byte, 0)
 
 	// validate byte code
 	if b0 == 0x01 {
@@ -132,7 +135,11 @@ func main() {
 			// read track header
 			header := make([]byte, 15)
 			_, err = sfh.Read(header)
-			utils.CheckAndExit(err)
+			if err == io.EOF {
+				eof = true
+			} else {
+				utils.CheckAndExit(err)
+			}
 
 			// side (0x01 or 0x02)
 			// track (0x00 to 0x27)
