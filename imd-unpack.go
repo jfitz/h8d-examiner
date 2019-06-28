@@ -81,6 +81,34 @@ func read_sector(fh *os.File) ([]byte, error) {
 	return sector, nil
 }
 
+func read_track_header(fh *os.File) ([]byte, error) {
+	sector_map := make([]byte, 0)
+
+	// read track header
+	header := make([]byte, 5)
+	_, err := fh.Read(header)
+	if err != nil {
+		return sector_map, err
+	}
+
+	// side (0x01 or 0x02)
+	// track (0x00 to 0x27)
+	// 00
+	// number of sectors (0x0A)
+	// first sector (0x01)
+
+	num_sectors := int(header[3])
+	sector_map = make([]byte, num_sectors)
+	_, err = fh.Read(sector_map)
+	if err != nil {
+		return sector_map, err
+	}
+
+	// sector map[number of sectors]
+
+	return sector_map, nil
+}
+
 func main() {
 	// parse command line options
 	flag.Parse()
@@ -124,42 +152,30 @@ func main() {
 	fmt.Println(header)
 
 	eof := false
-	index := 0
-
-	// TODO: detect EOF on sfh
 
 	for !eof {
 		// if index mod 10 == 0, read track header
 		// TODO: use number of sectors to find next header (start with zero)
-		if index%10 == 0 {
-			// read track header
-			header := make([]byte, 15)
-			_, err = sfh.Read(header)
-			if err == io.EOF {
-				eof = true
-			} else {
-				utils.CheckAndExit(err)
-			}
 
-			// side (0x01 or 0x02)
-			// track (0x00 to 0x27)
-			// 00
-			// number of sectors (0x0A)
-			// first sector (0x01)
-			// sector map[number of sectors]
-		}
-
-		// TODO: read all sectors in track, resequence, then write in proper sequence for Heath CP/M H-17
-		sector, err := read_sector(sfh)
+		sector_map, err := read_track_header(sfh)
 		if err == io.EOF {
 			eof = true
 		} else {
 			utils.CheckAndExit(err)
 		}
 
-		if !eof {
-			dfh.Write(sector)
-			index += 1
+		num_sectors := len(sector_map)
+		for i := 0; i < num_sectors; i++ {
+			sector, err := read_sector(sfh)
+			if err == io.EOF {
+				eof = true
+			} else {
+				utils.CheckAndExit(err)
+			}
+
+			if !eof {
+				dfh.Write(sector)
+			}
 		}
 	}
 }
