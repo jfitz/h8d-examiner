@@ -4,9 +4,11 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"github.com/jfitz/h8d-examiner/utils"
+	"io"
 	"os"
 )
 
@@ -36,6 +38,41 @@ func read_compressed_sector(fh *os.File) ([]byte, error) {
 	sector := make([]byte, length)
 	for i := range sector {
 		sector[i] = b0
+	}
+
+	return sector, nil
+}
+
+func read_sector(fh *os.File) ([]byte, error) {
+	// read byte code
+	b := make([]byte, 1)
+	_, err := fh.Read(b)
+	utils.CheckAndExit(err)
+
+	b0 := b[0]
+	sector := make([]byte, 0)
+
+	// validate byte code
+	if b0 == 0x01 {
+		sector, err = read_normal_sector(fh)
+		if err != nil {
+			return sector, err
+		}
+	} else if b0 == 0x02 {
+		sector, err = read_compressed_sector(fh)
+		if err != nil {
+			return sector, err
+		}
+
+	} else {
+		pos, err := fh.Seek(0, os.SEEK_CUR)
+		if err != nil {
+			return sector, err
+		}
+
+		msg := fmt.Sprintf("Unknown byte code %02X at position %04X\n", b0, pos)
+		err = errors.New(msg)
+		return sector, err
 	}
 
 	return sector, nil
@@ -105,33 +142,17 @@ func main() {
 			// sector map[number of sectors]
 		}
 
-		// TODO: read entire track, unmap sectors using map, then re-map for Heath H-17 CP/M sequence
-
-		// read byte code
-		_, err = sfh.Read(b)
-		utils.CheckAndExit(err)
-
-		b0 := b[0]
-
-		// validate byte code
-		if b0 == 0x01 {
-			sector, err := read_normal_sector(sfh)
-			utils.CheckAndExit(err)
-
-			dfh.Write(sector)
-			index += 1
-		} else if b0 == 0x02 {
-			sector, err := read_compressed_sector(sfh)
-			utils.CheckAndExit(err)
-
-			dfh.Write(sector)
-			index += 1
-		} else {
-			pos, err := sfh.Seek(0, os.SEEK_CUR)
-			utils.CheckAndExit(err)
-
-			fmt.Printf("Unknown byte code %02X at position %04X\n", b0, pos)
+		// TODO: read all sectors in track, resequence, then write in proper sequence for Heath CP/M H-17
+		sector, err := read_sector(sfh)
+		if err == io.EOF {
 			eof = true
+		} else {
+			utils.CheckAndExit(err)
+		}
+
+		if !eof {
+			dfh.Write(sector)
+			index += 1
 		}
 	}
 }
