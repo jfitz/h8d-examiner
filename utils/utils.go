@@ -51,6 +51,21 @@ func ReadSector(fh *os.File, sectorIndex int) ([]byte, error) {
 	return sector, nil
 }
 
+func ReadSectors(fh *os.File, sectorIndexes []int) ([]byte, error) {
+	sectors := []byte{}
+
+	for _, index := range sectorIndexes {
+		sector, err := ReadSector(fh, index)
+		if err != nil {
+			return sectors, err
+		}
+
+		sectors = append(sectors, sector...)
+	}
+
+	return sectors, nil
+}
+
 func dumpOctal(bytes []byte) {
 	for _, b := range bytes {
 		fmt.Printf(" %03o", b)
