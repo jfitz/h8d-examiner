@@ -38,7 +38,7 @@ func main() {
 	catSpec := *catSpecPtr
 	hdosDisk := *hdosDiskPtr
 	cpmDisk := *cpmDiskPtr
-	diskInfo := utils.DiskInfo{1, 1, 40, 10, 10}
+	diskParams := utils.DiskParams{1, 1, 40, 10, 256, 10}
 
 	args := flag.Args()
 
@@ -77,7 +77,7 @@ func main() {
 			} else if hdosDisk {
 				hdos.Export(fh, exportSpec, exportDirectory)
 			} else if cpmDisk {
-				cpm.Export(fh, exportSpec, exportDirectory, diskInfo)
+				cpm.Export(fh, exportSpec, exportDirectory, diskParams)
 			} else {
 				fmt.Println("Must specify either HDOS or CP/M")
 			}
@@ -88,7 +88,7 @@ func main() {
 			} else if hdosDisk {
 				hdos.Cat(fh)
 			} else if cpmDisk {
-				cpm.Cat(fh, diskInfo)
+				cpm.Cat(fh, diskParams)
 			} else {
 				fmt.Println("Must specify either HDOS or CP/M")
 			}
@@ -124,7 +124,7 @@ func main() {
 				hdos.Menu(reader, fh, exportDirectory)
 			} else if line == "cp/m" {
 				fmt.Println()
-				cpm.Menu(reader, fh, exportDirectory, diskInfo)
+				cpm.Menu(reader, fh, exportDirectory, diskParams)
 			} else if line == "RESETTERM" {
 				fmt.Println("\x1bc")
 			} else {

@@ -27,11 +27,12 @@ func TrimSlice(slice []byte) []byte {
 	return slice
 }
 
-type DiskInfo struct {
+type DiskParams struct {
 	Type             int
 	Sides            int
 	Tracks           int
 	SectorsPerTrack  int
+	BytesPerSector   int
 	SectorsPerTrack0 int
 }
 
