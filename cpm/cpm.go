@@ -145,17 +145,17 @@ func specialFlagsToText(flags []bool) string {
 	return text
 }
 
-func allRecords(blocks []int, directoryFirstRecord int, recordCount int, h17 bool, h37 bool) []int {
+func allRecords(blocks []int, directoryFirstRecord int, recordCount int, disk_type int) []int {
 	records := []int{}
 
-	if h37 {
+	if disk_type == 1 {
 		for _, block := range blocks {
 			blockRecords := blockToRecordsH37(block, directoryFirstRecord)
 			records = append(records, blockRecords...)
 		}
 	}
 
-	if h17 {
+	if disk_type == 0 {
 		for _, block := range blocks {
 			blockRecords := blockToRecordsH17(block, directoryFirstRecord)
 			records = append(records, blockRecords...)
@@ -303,7 +303,7 @@ func (entry DirectoryEntry) allocationBlocks() []int {
 }
 
 // print detailed catalog from directory
-func catCommand(fh *os.File, directory []byte, details bool, h17 bool, h37 bool) {
+func catCommand(fh *os.File, directory []byte, details bool, disk_type int) {
 	fmt.Println("User Name          Extent Flags         Records Blocks")
 
 	index := 0
@@ -333,7 +333,7 @@ func catCommand(fh *os.File, directory []byte, details bool, h17 bool, h37 bool)
 				// record numbers
 				fmt.Println()
 				recordCount := int(entry.RecordCount)
-				records := allRecords(blocks, directoryFirstRecord, recordCount, h17, h37)
+				records := allRecords(blocks, directoryFirstRecord, recordCount, disk_type)
 
 				recordText := recordsToText(records)
 				fmt.Println(recordText)
@@ -349,7 +349,7 @@ func catCommand(fh *os.File, directory []byte, details bool, h17 bool, h37 bool)
 }
 
 // print file-oriented directory (one line per file, not per entry)
-func dirCommand(fh *os.File, directory []byte, h17 bool, h37 bool) {
+func dirCommand(fh *os.File, directory []byte, disk_type int) {
 	fmt.Println("Name          Flags      Records")
 
 	// for each user (0 to 31)
@@ -384,7 +384,7 @@ func dirCommand(fh *os.File, directory []byte, h17 bool, h37 bool) {
 				// calculate size
 				blocks := entry.allocationBlocks()
 				recordCount := int(entry.RecordCount)
-				records := allRecords(blocks, directoryFirstRecord, recordCount, h17, h37)
+				records := allRecords(blocks, directoryFirstRecord, recordCount, disk_type)
 				fileBlocks[filename] += len(records)
 			}
 
@@ -494,7 +494,7 @@ func exportRecords(fh *os.File, recordNumbers []int, filename string, exportDire
 	fmt.Println("Done")
 }
 
-func getRecordNumbers(fh *os.File, directory []byte, user int, name string, extension string, h17 bool, h37 bool) ([]int, bool) {
+func getRecordNumbers(fh *os.File, directory []byte, user int, name string, extension string, disk_type int) ([]int, bool) {
 	recordNumbers := []int{}
 
 	entrySize := 32
@@ -526,7 +526,7 @@ func getRecordNumbers(fh *os.File, directory []byte, user int, name string, exte
 					done = true
 				}
 
-				blockRecordNumbers := allRecords(blocks, directoryFirstRecord, recordCount, h17, h37)
+				blockRecordNumbers := allRecords(blocks, directoryFirstRecord, recordCount, disk_type)
 				recordNumbers = append(recordNumbers, blockRecordNumbers...)
 			}
 
@@ -556,10 +556,10 @@ func splitFilename(filename string) (int, string, string) {
 	return user, name, extension
 }
 
-func typeCommand(fh *os.File, directory []byte, filename string, h17 bool, h37 bool) {
+func typeCommand(fh *os.File, directory []byte, filename string, disk_type int) {
 	user, name, extension := splitFilename(filename)
 
-	recordNumbers, found := getRecordNumbers(fh, directory, user, name, extension, h17, h37)
+	recordNumbers, found := getRecordNumbers(fh, directory, user, name, extension, disk_type)
 
 	if found {
 		displayRecords(fh, recordNumbers)
@@ -571,10 +571,10 @@ func typeCommand(fh *os.File, directory []byte, filename string, h17 bool, h37 b
 	fmt.Println()
 }
 
-func dumpCommand(fh *os.File, directory []byte, filename string, h17 bool, h37 bool) {
+func dumpCommand(fh *os.File, directory []byte, filename string, disk_type int) {
 	user, name, extension := splitFilename(filename)
 
-	recordNumbers, found := getRecordNumbers(fh, directory, user, name, extension, h17, h37)
+	recordNumbers, found := getRecordNumbers(fh, directory, user, name, extension, disk_type)
 
 	if found {
 		dumpRecords(fh, recordNumbers)
@@ -586,10 +586,10 @@ func dumpCommand(fh *os.File, directory []byte, filename string, h17 bool, h37 b
 	fmt.Println()
 }
 
-func exportCommand(fh *os.File, directory []byte, filename string, exportDirectory string, h17 bool, h37 bool) {
+func exportCommand(fh *os.File, directory []byte, filename string, exportDirectory string, disk_type int) {
 	user, name, extension := splitFilename(filename)
 
-	recordNumbers, found := getRecordNumbers(fh, directory, user, name, extension, h17, h37)
+	recordNumbers, found := getRecordNumbers(fh, directory, user, name, extension, disk_type)
 
 	if found {
 		exportRecords(fh, recordNumbers, filename, exportDirectory)
@@ -600,15 +600,15 @@ func exportCommand(fh *os.File, directory []byte, filename string, exportDirecto
 	fmt.Println()
 }
 
-func readDirectory(fh *os.File, h17 bool, h37 bool) ([]byte, error) {
+func readDirectory(fh *os.File, disk_type int) ([]byte, error) {
 	indexes := []int{}
 
-	if h17 {
+	if disk_type == 0 {
 		// read sector 30 and 34 (the directory on an H-17 SSSD disk)
 		indexes = []int{30, 34}
 	}
 
-	if h37 {
+	if disk_type == 1 {
 		// read sectors 30, 33, 36, and 39 (the directory on an H-37 SSSD disk)
 		indexes = []int{30, 33, 36, 39}
 	}
@@ -618,28 +618,28 @@ func readDirectory(fh *os.File, h17 bool, h37 bool) ([]byte, error) {
 	return directory, err
 }
 
-func Export(fh *os.File, exportSpec string, exportDirectory string, h17 bool, h37 bool) {
-	directory, err := readDirectory(fh, h17, h37)
+func Export(fh *os.File, exportSpec string, exportDirectory string, disk_type int) {
+	directory, err := readDirectory(fh, disk_type)
 	if err != nil {
 		fmt.Println(err.Error)
 		return
 	}
 
-	exportCommand(fh, directory, exportSpec, exportDirectory, h17, h37)
+	exportCommand(fh, directory, exportSpec, exportDirectory, disk_type)
 }
 
-func Cat(fh *os.File, h17 bool, h37 bool) {
-	directory, err := readDirectory(fh, h17, h37)
+func Cat(fh *os.File, disk_type int) {
+	directory, err := readDirectory(fh, disk_type)
 	if err != nil {
 		fmt.Println(err.Error)
 		return
 	}
 
-	dirCommand(fh, directory, h17, h37)
+	dirCommand(fh, directory, disk_type)
 }
 
-func Menu(reader *bufio.Reader, fh *os.File, exportDirectory string, h17 bool, h37 bool) {
-	directory, err := readDirectory(fh, h17, h37)
+func Menu(reader *bufio.Reader, fh *os.File, exportDirectory string, disk_type int) {
+	directory, err := readDirectory(fh, disk_type)
 	if err != nil {
 		fmt.Println(err.Error)
 		return
@@ -663,17 +663,17 @@ func Menu(reader *bufio.Reader, fh *os.File, exportDirectory string, h17 bool, h
 		} else if parts[0] == "stats" {
 			fmt.Println("not implemented")
 		} else if parts[0] == "cat" {
-			catCommand(fh, directory, false, h17, h37)
+			catCommand(fh, directory, false, disk_type)
 		} else if parts[0] == "cats" {
-			catCommand(fh, directory, true, h17, h37)
+			catCommand(fh, directory, true, disk_type)
 		} else if parts[0] == "dir" {
-			dirCommand(fh, directory, h17, h37)
+			dirCommand(fh, directory, disk_type)
 		} else if parts[0] == "type" {
-			typeCommand(fh, directory, parts[1], h17, h37)
+			typeCommand(fh, directory, parts[1], disk_type)
 		} else if parts[0] == "dump" {
-			dumpCommand(fh, directory, parts[1], h17, h37)
+			dumpCommand(fh, directory, parts[1], disk_type)
 		} else if parts[0] == "export" {
-			exportCommand(fh, directory, parts[1], exportDirectory, h17, h37)
+			exportCommand(fh, directory, parts[1], exportDirectory, disk_type)
 		} else {
 			help()
 			fmt.Println()
