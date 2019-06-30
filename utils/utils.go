@@ -27,6 +27,14 @@ func TrimSlice(slice []byte) []byte {
 	return slice
 }
 
+type DiskInfo struct {
+	Type             int
+	Sides            int
+	Tracks           int
+	SectorsPerTrack  int
+	SectorsPerTrack0 int
+}
+
 func ReadSector(fh *os.File, sectorIndex int) ([]byte, error) {
 	sector := make([]byte, 256)
 
