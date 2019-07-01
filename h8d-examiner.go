@@ -38,7 +38,9 @@ func main() {
 	catSpec := *catSpecPtr
 	hdosDisk := *hdosDiskPtr
 	cpmDisk := *cpmDiskPtr
-	diskParams := utils.DiskParams{1, 1, 40, 10, 256, 10}
+	diskType := utils.H37
+	sides := utils.SingleSided
+	diskParams := utils.DiskParams{diskType, sides, 40, 10, 256, 10}
 
 	args := flag.Args()
 

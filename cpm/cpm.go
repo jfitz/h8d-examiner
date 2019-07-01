@@ -148,14 +148,14 @@ func specialFlagsToText(flags []bool) string {
 func allRecords(blocks []int, directoryFirstRecord int, recordCount int, diskParams utils.DiskParams) []int {
 	records := []int{}
 
-	if diskParams.Type == 1 {
+	if diskParams.Type == utils.H37 {
 		for _, block := range blocks {
 			blockRecords := blockToRecordsH37(block, directoryFirstRecord)
 			records = append(records, blockRecords...)
 		}
 	}
 
-	if diskParams.Type == 0 {
+	if diskParams.Type == utils.H17 {
 		for _, block := range blocks {
 			blockRecords := blockToRecordsH17(block, directoryFirstRecord)
 			records = append(records, blockRecords...)
@@ -603,12 +603,12 @@ func exportCommand(fh *os.File, directory []byte, filename string, exportDirecto
 func readDirectory(fh *os.File, diskParams utils.DiskParams) ([]byte, error) {
 	indexes := []int{}
 
-	if diskParams.Type == 0 {
+	if diskParams.Type == utils.H17 {
 		// read sector 30 and 34 (the directory on an H-17 SSSD disk)
 		indexes = []int{30, 34}
 	}
 
-	if diskParams.Type == 1 {
+	if diskParams.Type == utils.H37 {
 		// read sectors 30, 33, 36, and 39 (the directory on an H-37 SSSD disk)
 		indexes = []int{30, 33, 36, 39}
 	}

@@ -27,9 +27,25 @@ func TrimSlice(slice []byte) []byte {
 	return slice
 }
 
+type DiskType int
+
+const (
+	H17 DiskType = 17
+	H27 DiskType = 27
+	H37 DiskType = 37
+	H47 DiskType = 47
+)
+
+type DiskSides int
+
+const (
+	SingleSided DiskSides = 1
+	DoubleSided DiskSides = 2
+)
+
 type DiskParams struct {
-	Type             int
-	Sides            int
+	Type             DiskType
+	Sides            DiskSides
 	Tracks           int
 	SectorsPerTrack  int
 	BytesPerSector   int
