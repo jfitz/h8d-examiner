@@ -106,7 +106,7 @@ func flagsToText(flags byte) string {
 	return text
 }
 
-func printDirectoryBlock(directoryBlock []byte, grtSector []byte, sectorsPerGroup int) {
+func printDirectoryBlock(directoryBlock []byte, grtSector []byte, sectorsPerGroup int, details bool) {
 	// parse and print 22 entries of 23 bytes each
 	for i := 0; i < 22; i++ {
 		start := i * 23
@@ -117,11 +117,11 @@ func printDirectoryBlock(directoryBlock []byte, grtSector []byte, sectorsPerGrou
 			extensionBytes := entry[8:11]
 			name := string(utils.TrimSlice(nameBytes))
 			extension := string(utils.TrimSlice(extensionBytes))
+			project := entry[12]
+			version := entry[13]
 			flagByte := entry[14]
 			flags := flagsToText(flagByte)
 
-			createDateBytes := entry[19:21]
-			createDate := dateToText(createDateBytes)
 			modifyDateBytes := entry[21:23]
 			modifyDate := dateToText(modifyDateBytes)
 
@@ -130,10 +130,18 @@ func printDirectoryBlock(directoryBlock []byte, grtSector []byte, sectorsPerGrou
 			lastSector := int(entry[18])
 			usedSectors := getSectors(grtSector, firstCluster, lastCluster, lastSector, sectorsPerGroup)
 			usedSectorCount := len(usedSectors)
-			allocSectors := getSectors(grtSector, firstCluster, lastCluster, sectorsPerGroup, sectorsPerGroup)
-			allocSectorCount := len(allocSectors)
 
-			fmt.Printf("%-8s.%-3s    %s     %s    %s   %4d   %4d\n", name, extension, flags, createDate, modifyDate, usedSectorCount, allocSectorCount)
+			if details {
+				createDateBytes := entry[19:21]
+				createDate := dateToText(createDateBytes)
+
+				allocSectors := getSectors(grtSector, firstCluster, lastCluster, sectorsPerGroup, sectorsPerGroup)
+				allocSectorCount := len(allocSectors)
+
+				fmt.Printf("%-8s.%-3s[%04d];%03d    %s     %s    %s   %4d   %4d\n", name, extension, project, version, flags, createDate, modifyDate, usedSectorCount, allocSectorCount)
+			} else {
+				fmt.Printf("%-8s.%-3s    %s     %s   %4d\n", name, extension, flags, modifyDate, usedSectorCount)
+			}
 		}
 	}
 }
@@ -227,8 +235,8 @@ func (label Label) Print() {
 	fmt.Printf("Label: %s\n", label.Text)
 }
 
-func dirCommand(fh *os.File, label Label, grtSector []byte) {
-	fmt.Println("Name            Flags    Created        Modified      Used  Allocated")
+func catCommand(fh *os.File, label Label, grtSector []byte) {
+	fmt.Println("Name                      Flags    Created        Modified      Used  Allocated")
 
 	// start with first directory sector
 	sectorIndex := label.Dis
@@ -239,7 +247,31 @@ func dirCommand(fh *os.File, label Label, grtSector []byte) {
 			fmt.Println(err.Error())
 		}
 
-		printDirectoryBlock(directoryBlock, grtSector, label.Spg)
+		printDirectoryBlock(directoryBlock, grtSector, label.Spg, true)
+
+		// read 6 bytes
+		vectorBytes := directoryBlock[506:512]
+
+		// bytes [4] and [5] are index of next directory pair
+		sectorIndex = int(vectorBytes[4]) + int(vectorBytes[5])*256
+	}
+
+	fmt.Println()
+}
+
+func dirCommand(fh *os.File, label Label, grtSector []byte) {
+	fmt.Println("Name            Flags    Modified      Used")
+
+	// start with first directory sector
+	sectorIndex := label.Dis
+
+	for sectorIndex != 0 {
+		directoryBlock, err := readSectorPair(fh, sectorIndex)
+		if err != nil {
+			fmt.Println(err.Error())
+		}
+
+		printDirectoryBlock(directoryBlock, grtSector, label.Spg, false)
 
 		// read 6 bytes
 		vectorBytes := directoryBlock[506:512]
@@ -450,7 +482,9 @@ func Menu(reader *bufio.Reader, fh *os.File, exportDirectory string) {
 			freeSectorCount := len(freeSectors)
 			fmt.Printf("Free sectors: %d\n", freeSectorCount)
 			fmt.Println()
-		} else if parts[0] == "cat" || parts[0] == "dir" {
+		} else if parts[0] == "cat" {
+			catCommand(fh, label, grtSector)
+		} else if parts[0] == "dir" {
 			dirCommand(fh, label, grtSector)
 		} else if parts[0] == "type" && len(parts) == 2 {
 			typeCommand(fh, label, grtSector, parts[1])
