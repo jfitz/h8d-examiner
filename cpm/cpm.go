@@ -5,6 +5,7 @@ package cpm
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"github.com/jfitz/h8d-examiner/utils"
 	"os"
@@ -145,6 +146,7 @@ func specialFlagsToText(flags []bool) string {
 	return text
 }
 
+// return all record numbers for a file
 func allRecords(blocks []int, directoryFirstRecord int, recordCount int, diskParams utils.DiskParams) []int {
 	records := []int{}
 
@@ -162,7 +164,9 @@ func allRecords(blocks []int, directoryFirstRecord int, recordCount int, diskPar
 		}
 	}
 
-	records = records[:recordCount]
+	if recordCount > 0 {
+		records = records[:recordCount]
+	}
 
 	return records
 }
@@ -333,9 +337,9 @@ func catCommand(fh *os.File, directory []byte, details bool, diskParams utils.Di
 				// record numbers
 				fmt.Println()
 				recordCount := int(entry.RecordCount)
-				records := allRecords(blocks, directoryFirstRecord, recordCount, diskParams)
+				recordNumbers := allRecords(blocks, directoryFirstRecord, recordCount, diskParams)
 
-				recordText := recordsToText(records)
+				recordText := recordsToText(recordNumbers)
 				fmt.Println(recordText)
 			}
 		}
@@ -392,8 +396,8 @@ func dirCommand(fh *os.File, directory []byte, diskParams utils.DiskParams) {
 				// calculate size
 				blocks := entry.allocationBlocks()
 				recordCount := int(entry.RecordCount)
-				records := allRecords(blocks, directoryFirstRecord, recordCount, diskParams)
-				fileBlocks[filename] += len(records)
+				recordNumbers := allRecords(blocks, directoryFirstRecord, recordCount, diskParams)
+				fileBlocks[filename] += len(recordNumbers)
 			}
 
 			index += entrySize
@@ -609,21 +613,27 @@ func exportCommand(fh *os.File, directory []byte, filename string, exportDirecto
 }
 
 func readDirectory(fh *os.File, diskParams utils.DiskParams) ([]byte, error) {
-	indexes := []int{}
+	blocks := []int{0, 1}
+	directoryFirstRecord := 60
+	recordCount := -1
+	recordNumbers := allRecords(blocks, directoryFirstRecord, recordCount, diskParams)
 
-	if diskParams.Type == utils.H17 {
-		// read sector 30 and 34 (the directory on an H-17 SSSD disk)
-		indexes = []int{30, 34}
+	directory := make([]byte, 0)
+	// for each record in block
+	for _, record := range recordNumbers {
+
+		// read data
+		recordBytes, err := readRecord(fh, record)
+
+		if err != nil {
+			err2 := errors.New("Could not read directory record")
+			return directory, err2
+		} else {
+			directory = append(directory, recordBytes...)
+		}
 	}
 
-	if diskParams.Type == utils.H37 {
-		// read sectors 30, 33, 36, and 39 (the directory on an H-37 SSSD disk)
-		indexes = []int{30, 33, 36, 39}
-	}
-
-	directory, err := utils.ReadSectors(fh, indexes)
-
-	return directory, err
+	return directory, nil
 }
 
 func Export(fh *os.File, exportSpec string, exportDirectory string, diskParams utils.DiskParams) {
