@@ -29,6 +29,7 @@ func main() {
 	catSpecPtr := flag.Bool("cat", false, "List files in disk image")
 	hdosDiskPtr := flag.Bool("hdos", false, "Interpret as HDOS disk")
 	cpmDiskPtr := flag.Bool("cpm", false, "Interpret as CP/M disk")
+	h37DiskPtr := flag.Bool("h37", false, "H-37 soft-sector format")
 
 	// parse command line options
 	flag.Parse()
@@ -38,7 +39,11 @@ func main() {
 	catSpec := *catSpecPtr
 	hdosDisk := *hdosDiskPtr
 	cpmDisk := *cpmDiskPtr
-	diskType := utils.H37
+	h37Disk := *h37DiskPtr
+	diskType := utils.H17
+	if h37Disk {
+		diskType = utils.H37
+	}
 	sides := utils.SingleSided
 	diskParams := utils.DiskParams{diskType, sides, 40, 10, 256, 10}
 

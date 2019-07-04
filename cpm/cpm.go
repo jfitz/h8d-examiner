@@ -350,8 +350,6 @@ func catCommand(fh *os.File, directory []byte, details bool, diskParams utils.Di
 
 // print file-oriented directory (one line per file, not per entry)
 func dirCommand(fh *os.File, directory []byte, diskParams utils.DiskParams) {
-	fmt.Println("Name          Flags      Records")
-
 	// for each user (0 to 31)
 	for user := 0; user < 32; user++ {
 		// get list of all file names with no repeats (strip flags)
@@ -362,6 +360,8 @@ func dirCommand(fh *os.File, directory []byte, diskParams utils.DiskParams) {
 		fileBlocks := map[string]int{}
 		fileFlags := map[string]string{}
 
+		print_user_header := true
+
 		for index < len(directory) {
 			end := index + entrySize
 			entry := DirectoryEntry{}
@@ -370,6 +370,14 @@ func dirCommand(fh *os.File, directory []byte, diskParams utils.DiskParams) {
 			entryUser := int(entry.User)
 
 			if entryUser == user {
+				if print_user_header {
+					fmt.Println()
+					fmt.Printf("User: %d\n", entryUser)
+					fmt.Println("Name          Flags      Records")
+
+					print_user_header = false
+				}
+
 				// get filename
 				filename := entry.nameToText()
 
