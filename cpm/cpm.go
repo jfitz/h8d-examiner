@@ -133,47 +133,38 @@ func specialFlagsToText(flags []bool) string {
 
 // return all record numbers for a file
 func allRecords(blocks []int, recordCount int, diskParams utils.DiskParams) []int {
-	records := []int{}
-
 	sectorsPerBlock := 20
 	directoryFirstSector := 30
+	recordsPerSector := 2
+	blocksPerMap := 5
+	sectorMap := [][]int{}
 
 	if diskParams.Type == utils.H37 {
-		recordsPerSector := 2
-		blocksPerMap := 5
-
-		sectorMap := [][]int{
+		sectorMap = [][]int{
 			{0, 3, 6, 9},
 			{2, 5, 8, 1},
 			{4, 7, 10, 13},
 			{16, 19, 12, 15},
 			{18, 11, 14, 17},
 		}
-
-		for _, block := range blocks {
-			blockSectors := blockToSectors(block, sectorsPerBlock, sectorMap, blocksPerMap, directoryFirstSector)
-			blockRecords := sectorsToRecords(blockSectors, recordsPerSector)
-			records = append(records, blockRecords...)
-		}
 	}
 
 	if diskParams.Type == utils.H17 {
-		recordsPerSector := 2
-		blocksPerMap := 5
-
-		sectorMap := [][]int{
+		sectorMap = [][]int{
 			{0, 4, 8, 2},
 			{6, 1, 5, 9},
 			{3, 7, 10, 14},
 			{18, 12, 16, 11},
 			{15, 19, 13, 17},
 		}
+	}
 
-		for _, block := range blocks {
-			blockSectors := blockToSectors(block, sectorsPerBlock, sectorMap, blocksPerMap, directoryFirstSector)
-			blockRecords := sectorsToRecords(blockSectors, recordsPerSector)
-			records = append(records, blockRecords...)
-		}
+	records := []int{}
+
+	for _, block := range blocks {
+		blockSectors := blockToSectors(block, sectorsPerBlock, sectorMap, blocksPerMap, directoryFirstSector)
+		blockRecords := sectorsToRecords(blockSectors, recordsPerSector)
+		records = append(records, blockRecords...)
 	}
 
 	if recordCount > 0 {

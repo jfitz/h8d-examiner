@@ -40,10 +40,13 @@ func main() {
 	hdosDisk := *hdosDiskPtr
 	cpmDisk := *cpmDiskPtr
 	h37Disk := *h37DiskPtr
+
 	diskType := utils.H17
+
 	if h37Disk {
 		diskType = utils.H37
 	}
+
 	sides := utils.SingleSided
 	diskParams := utils.DiskParams{diskType, sides, 40, 10, 256, 10}
 
