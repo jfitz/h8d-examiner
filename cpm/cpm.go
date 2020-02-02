@@ -39,38 +39,7 @@ func sectorsToRecords(sectorIndexes []int, recordsPerSector int) []int {
 	return recordIndexes
 }
 
-func blockToSectorsH17(block int, dirBase int) []int {
-	sectorMap := [][]int{
-		{0, 4, 8, 2},
-		{6, 1, 5, 9},
-		{3, 7, 10, 14},
-		{18, 12, 16, 11},
-		{15, 19, 13, 17},
-	}
-
-	index := block % 5
-	track := (block / 5) * 20
-	offsets := sectorMap[index]
-
-	sectorIndexes := []int{}
-	for _, offset := range offsets {
-		sectorIndex := dirBase + track + offset
-
-		sectorIndexes = append(sectorIndexes, sectorIndex)
-	}
-
-	return sectorIndexes
-}
-
-func blockToSectorsH37(block int, dirBase int) []int {
-	sectorMap := [][]int{
-		{0, 3, 6, 9},
-		{2, 5, 8, 1},
-		{4, 7, 10, 13},
-		{16, 19, 12, 15},
-		{18, 11, 14, 17},
-	}
-
+func blockToSectors(block int, sectorMap [][]int, dirBase int) []int {
 	index := block % 5
 	track := (block / 5) * 20
 	offsets := sectorMap[index]
@@ -171,8 +140,16 @@ func allRecords(blocks []int, recordCount int, diskParams utils.DiskParams) []in
 	if diskParams.Type == utils.H37 {
 		recordsPerSector := 2
 
+		sectorMap := [][]int{
+			{0, 3, 6, 9},
+			{2, 5, 8, 1},
+			{4, 7, 10, 13},
+			{16, 19, 12, 15},
+			{18, 11, 14, 17},
+		}
+
 		for _, block := range blocks {
-			blockSectors := blockToSectorsH37(block, directoryFirstSector)
+			blockSectors := blockToSectors(block, sectorMap, directoryFirstSector)
 			blockRecords := sectorsToRecords(blockSectors, recordsPerSector)
 			records = append(records, blockRecords...)
 		}
@@ -181,8 +158,16 @@ func allRecords(blocks []int, recordCount int, diskParams utils.DiskParams) []in
 	if diskParams.Type == utils.H17 {
 		recordsPerSector := 2
 
+		sectorMap := [][]int{
+			{0, 4, 8, 2},
+			{6, 1, 5, 9},
+			{3, 7, 10, 14},
+			{18, 12, 16, 11},
+			{15, 19, 13, 17},
+		}
+
 		for _, block := range blocks {
-			blockSectors := blockToSectorsH17(block, directoryFirstSector)
+			blockSectors := blockToSectors(block, sectorMap, directoryFirstSector)
 			blockRecords := sectorsToRecords(blockSectors, recordsPerSector)
 			records = append(records, blockRecords...)
 		}
