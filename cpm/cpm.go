@@ -23,50 +23,66 @@ func help() {
 	fmt.Println("exit   - exit to main level")
 }
 
-func blockToRecordsH17(block int, dirBase int) []int {
-	recordMap := [][]int{
-		{0, 1, 8, 9, 16, 17, 4, 5},
-		{12, 13, 2, 3, 10, 11, 18, 19},
-		{6, 7, 14, 15, 20, 21, 28, 29},
-		{36, 37, 24, 25, 32, 33, 22, 23},
-		{30, 31, 38, 39, 26, 27, 34, 35},
+func sectorsToRecords(sectorIndexes []int, recordsPerSector int) []int {
+	recordIndexes := []int{}
+
+	for _, sectorIndex := range sectorIndexes {
+		recordIndex := sectorIndex * recordsPerSector
+
+		for i := 0; i < recordsPerSector; i++ {
+			recordIndexes = append(recordIndexes, recordIndex)
+
+			recordIndex += 1
+		}
 	}
 
-	index := block % 5
-	track := (block / 5) * 40
-	offsets := recordMap[index]
-
-	records := []int{}
-	for _, offset := range offsets {
-		record := dirBase + track + offset
-
-		records = append(records, record)
-	}
-
-	return records
+	return recordIndexes
 }
 
-func blockToRecordsH37(block int, dirBase int) []int {
-	recordMap := [][]int{
-		{0, 1, 6, 7, 12, 13, 18, 19},
-		{4, 5, 10, 11, 16, 17, 2, 3},
-		{8, 9, 14, 15, 20, 21, 26, 27},
-		{32, 33, 38, 39, 24, 25, 30, 31},
-		{36, 37, 22, 23, 28, 29, 34, 35},
+func blockToSectorsH17(block int, dirBase int) []int {
+	sectorMap := [][]int{
+		{0, 4, 8, 2},
+		{6, 1, 5, 9},
+		{3, 7, 10, 14},
+		{18, 12, 16, 11},
+		{15, 19, 13, 17},
 	}
 
 	index := block % 5
-	track := (block / 5) * 40
-	offsets := recordMap[index]
+	track := (block / 5) * 20
+	offsets := sectorMap[index]
 
-	records := []int{}
+	sectorIndexes := []int{}
 	for _, offset := range offsets {
-		record := dirBase + track + offset
+		sectorIndex := dirBase + track + offset
 
-		records = append(records, record)
+		sectorIndexes = append(sectorIndexes, sectorIndex)
 	}
 
-	return records
+	return sectorIndexes
+}
+
+func blockToSectorsH37(block int, dirBase int) []int {
+	sectorMap := [][]int{
+		{0, 3, 6, 9},
+		{2, 5, 8, 1},
+		{4, 7, 10, 13},
+		{16, 19, 12, 15},
+		{18, 11, 14, 17},
+	}
+
+	index := block % 5
+	track := (block / 5) * 20
+	offsets := sectorMap[index]
+
+	sectorIndexes := []int{}
+	for _, offset := range offsets {
+		sectorIndex := dirBase + track + offset
+
+		sectorIndexes = append(sectorIndexes, sectorIndex)
+	}
+
+	return sectorIndexes
 }
 
 type SectorAndOffset struct {
@@ -147,19 +163,27 @@ func specialFlagsToText(flags []bool) string {
 }
 
 // return all record numbers for a file
-func allRecords(blocks []int, directoryFirstRecord int, recordCount int, diskParams utils.DiskParams) []int {
+func allRecords(blocks []int, recordCount int, diskParams utils.DiskParams) []int {
 	records := []int{}
 
+	directoryFirstSector := 30
+
 	if diskParams.Type == utils.H37 {
+		recordsPerSector := 2
+
 		for _, block := range blocks {
-			blockRecords := blockToRecordsH37(block, directoryFirstRecord)
+			blockSectors := blockToSectorsH37(block, directoryFirstSector)
+			blockRecords := sectorsToRecords(blockSectors, recordsPerSector)
 			records = append(records, blockRecords...)
 		}
 	}
 
 	if diskParams.Type == utils.H17 {
+		recordsPerSector := 2
+
 		for _, block := range blocks {
-			blockRecords := blockToRecordsH17(block, directoryFirstRecord)
+			blockSectors := blockToSectorsH17(block, directoryFirstSector)
+			blockRecords := sectorsToRecords(blockSectors, recordsPerSector)
 			records = append(records, blockRecords...)
 		}
 	}
@@ -312,7 +336,6 @@ func catCommand(fh *os.File, directory []byte, details bool, diskParams utils.Di
 
 	index := 0
 	entrySize := 32
-	directoryFirstRecord := 60
 
 	for index < len(directory) {
 		end := index + entrySize
@@ -337,7 +360,7 @@ func catCommand(fh *os.File, directory []byte, details bool, diskParams utils.Di
 				// record numbers
 				fmt.Println()
 				recordCount := int(entry.RecordCount)
-				recordNumbers := allRecords(blocks, directoryFirstRecord, recordCount, diskParams)
+				recordNumbers := allRecords(blocks, recordCount, diskParams)
 
 				recordText := recordsToText(recordNumbers)
 				fmt.Println(recordText)
@@ -359,7 +382,6 @@ func dirCommand(fh *os.File, directory []byte, diskParams utils.DiskParams) {
 		// get list of all file names with no repeats (strip flags)
 		index := 0
 		entrySize := 32
-		directoryFirstRecord := 60
 
 		fileBlocks := map[string]int{}
 		fileFlags := map[string]string{}
@@ -396,7 +418,7 @@ func dirCommand(fh *os.File, directory []byte, diskParams utils.DiskParams) {
 				// calculate size
 				blocks := entry.allocationBlocks()
 				recordCount := int(entry.RecordCount)
-				recordNumbers := allRecords(blocks, directoryFirstRecord, recordCount, diskParams)
+				recordNumbers := allRecords(blocks, recordCount, diskParams)
 				fileBlocks[filename] += len(recordNumbers)
 			}
 
@@ -510,7 +532,6 @@ func getRecordNumbers(fh *os.File, directory []byte, user int, name string, exte
 	recordNumbers := []int{}
 
 	entrySize := 32
-	directoryFirstRecord := 60
 
 	recordsPerBlock := 128
 	done := false
@@ -538,7 +559,7 @@ func getRecordNumbers(fh *os.File, directory []byte, user int, name string, exte
 					done = true
 				}
 
-				blockRecordNumbers := allRecords(blocks, directoryFirstRecord, recordCount, diskParams)
+				blockRecordNumbers := allRecords(blocks, recordCount, diskParams)
 				recordNumbers = append(recordNumbers, blockRecordNumbers...)
 			}
 
@@ -614,9 +635,9 @@ func exportCommand(fh *os.File, directory []byte, filename string, exportDirecto
 
 func readDirectory(fh *os.File, diskParams utils.DiskParams) ([]byte, error) {
 	blocks := []int{0, 1}
-	directoryFirstRecord := 60
+
 	recordCount := -1
-	recordNumbers := allRecords(blocks, directoryFirstRecord, recordCount, diskParams)
+	recordNumbers := allRecords(blocks, recordCount, diskParams)
 
 	directory := make([]byte, 0)
 	// for each record in block
