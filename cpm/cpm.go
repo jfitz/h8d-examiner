@@ -39,14 +39,14 @@ func sectorsToRecords(sectorIndexes []int, recordsPerSector int) []int {
 	return recordIndexes
 }
 
-func blockToSectors(block int, sectorMap [][]int, dirBase int) []int {
-	index := block % 5
-	track := (block / 5) * 20
-	offsets := sectorMap[index]
+func blockToSectors(block int, sectorsPerBlock int, sectorMap [][]int, blocksPerMap, dirBase int) []int {
+	index := block % blocksPerMap
+	track := (block / blocksPerMap) * sectorsPerBlock
+	offsetsInBlock := sectorMap[index]
 
 	sectorIndexes := []int{}
-	for _, offset := range offsets {
-		sectorIndex := dirBase + track + offset
+	for _, offsetInBlock := range offsetsInBlock {
+		sectorIndex := dirBase + track + offsetInBlock
 
 		sectorIndexes = append(sectorIndexes, sectorIndex)
 	}
@@ -135,10 +135,12 @@ func specialFlagsToText(flags []bool) string {
 func allRecords(blocks []int, recordCount int, diskParams utils.DiskParams) []int {
 	records := []int{}
 
+	sectorsPerBlock := 20
 	directoryFirstSector := 30
 
 	if diskParams.Type == utils.H37 {
 		recordsPerSector := 2
+		blocksPerMap := 5
 
 		sectorMap := [][]int{
 			{0, 3, 6, 9},
@@ -149,7 +151,7 @@ func allRecords(blocks []int, recordCount int, diskParams utils.DiskParams) []in
 		}
 
 		for _, block := range blocks {
-			blockSectors := blockToSectors(block, sectorMap, directoryFirstSector)
+			blockSectors := blockToSectors(block, sectorsPerBlock, sectorMap, blocksPerMap, directoryFirstSector)
 			blockRecords := sectorsToRecords(blockSectors, recordsPerSector)
 			records = append(records, blockRecords...)
 		}
@@ -157,6 +159,7 @@ func allRecords(blocks []int, recordCount int, diskParams utils.DiskParams) []in
 
 	if diskParams.Type == utils.H17 {
 		recordsPerSector := 2
+		blocksPerMap := 5
 
 		sectorMap := [][]int{
 			{0, 4, 8, 2},
@@ -167,7 +170,7 @@ func allRecords(blocks []int, recordCount int, diskParams utils.DiskParams) []in
 		}
 
 		for _, block := range blocks {
-			blockSectors := blockToSectors(block, sectorMap, directoryFirstSector)
+			blockSectors := blockToSectors(block, sectorsPerBlock, sectorMap, blocksPerMap, directoryFirstSector)
 			blockRecords := sectorsToRecords(blockSectors, recordsPerSector)
 			records = append(records, blockRecords...)
 		}
