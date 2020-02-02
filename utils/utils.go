@@ -43,8 +43,7 @@ const (
 	DoubleSided DiskSides = 2
 )
 
-type DiskParams struct {
-	Type             DiskType
+type DiskGeometry struct {
 	Sides            DiskSides
 	Tracks           int
 	SectorsPerTrack  int

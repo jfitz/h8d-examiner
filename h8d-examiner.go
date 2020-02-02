@@ -48,7 +48,7 @@ func main() {
 	}
 
 	sides := utils.SingleSided
-	diskParams := utils.DiskParams{diskType, sides, 40, 10, 256, 10}
+	diskGeometry := utils.DiskGeometry{sides, 40, 10, 256, 10}
 
 	args := flag.Args()
 
@@ -87,7 +87,7 @@ func main() {
 			} else if hdosDisk {
 				hdos.Export(fh, exportSpec, exportDirectory)
 			} else if cpmDisk {
-				cpm.Export(fh, exportSpec, exportDirectory, diskParams)
+				cpm.Export(fh, exportSpec, exportDirectory, diskGeometry, diskType)
 			} else {
 				fmt.Println("Must specify either HDOS or CP/M")
 			}
@@ -98,7 +98,7 @@ func main() {
 			} else if hdosDisk {
 				hdos.Cat(fh)
 			} else if cpmDisk {
-				cpm.Cat(fh, diskParams)
+				cpm.Cat(fh, diskGeometry, diskType)
 			} else {
 				fmt.Println("Must specify either HDOS or CP/M")
 			}
@@ -134,7 +134,7 @@ func main() {
 				hdos.Menu(reader, fh, exportDirectory)
 			} else if line == "cp/m" {
 				fmt.Println()
-				cpm.Menu(reader, fh, exportDirectory, diskParams)
+				cpm.Menu(reader, fh, exportDirectory, diskGeometry, diskType)
 			} else if line == "RESETTERM" {
 				fmt.Println("\x1bc")
 			} else {
