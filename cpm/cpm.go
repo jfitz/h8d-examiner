@@ -460,7 +460,7 @@ func displayRecords(fh *os.File, recordNumbers []int) {
 	}
 }
 
-func dumpRecords(fh *os.File, recordNumbers []int) {
+func dumpRecords(fh *os.File, format string, recordNumbers []int) {
 	// for each record in block
 	for i, record := range recordNumbers {
 		fmt.Printf("RECORD: %d\n", i)
@@ -471,7 +471,7 @@ func dumpRecords(fh *os.File, recordNumbers []int) {
 			fmt.Println("Could not read record")
 		} else {
 			// print data
-			utils.Dump(recordBytes, i, "hex")
+			utils.Dump(recordBytes, i, format)
 			fmt.Println()
 		}
 	}
@@ -583,13 +583,13 @@ func typeCommand(fh *os.File, directory []byte, filename string, diskGeometry ut
 	fmt.Println()
 }
 
-func dumpCommand(fh *os.File, directory []byte, filename string, diskGeometry utils.DiskGeometry, diskType utils.DiskType) {
+func dumpCommand(fh *os.File, directory []byte, filename string, format string, diskGeometry utils.DiskGeometry, diskType utils.DiskType) {
 	user, name, extension := splitFilename(filename)
 
 	recordNumbers, found := getRecordNumbers(fh, directory, user, name, extension, diskGeometry, diskType)
 
 	if found {
-		dumpRecords(fh, recordNumbers)
+		dumpRecords(fh, format, recordNumbers)
 	} else {
 		fmt.Println("File not found")
 	}
@@ -663,6 +663,8 @@ func Menu(reader *bufio.Reader, fh *os.File, exportDirectory string, diskGeometr
 		return
 	}
 
+	dump_format := "octal"
+
 	// prompt for command and process it
 	done := false
 	for !done {
@@ -687,11 +689,27 @@ func Menu(reader *bufio.Reader, fh *os.File, exportDirectory string, diskGeometr
 		} else if parts[0] == "dir" {
 			dirCommand(fh, directory, diskGeometry, diskType)
 		} else if parts[0] == "type" {
-			typeCommand(fh, directory, parts[1], diskGeometry, diskType)
+			if len(parts) > 1 {
+				typeCommand(fh, directory, parts[1], diskGeometry, diskType)
+			} else {
+				fmt.Println("File name required")
+			}
 		} else if parts[0] == "dump" {
-			dumpCommand(fh, directory, parts[1], diskGeometry, diskType)
+			if len(parts) > 1 {
+				format := dump_format
+				if len(parts) > 2 {
+					format = parts[2]
+				}
+				dumpCommand(fh, directory, parts[1], format, diskGeometry, diskType)
+			} else {
+				fmt.Println("File name required")
+			}
 		} else if parts[0] == "export" {
-			exportCommand(fh, directory, parts[1], exportDirectory, diskGeometry, diskType)
+			if len(parts) > 1 {
+				exportCommand(fh, directory, parts[1], exportDirectory, diskGeometry, diskType)
+			} else {
+				fmt.Println("File name required")
+			}
 		} else {
 			help()
 			fmt.Println()
