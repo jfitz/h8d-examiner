@@ -203,7 +203,7 @@ func (label *Label) Init(sector []byte) {
 	label.Spt = 10
 
 	// HDOS 2.0 knows about H-47 and H-37 disks
-	if label.Ver > 0x20 {
+	if label.Ver >= 0x20 {
 		// extract and validate number of sectors
 		label.Siz = int(sector[12]) + int(sector[13])*256
 
