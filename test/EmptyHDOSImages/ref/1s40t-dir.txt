@@ -1,0 +1,8 @@
+> 
+HDOS> Name            Flags    Modified      Used
+RGT     .SYS    SLWC     00-JAN-1970      1
+GRT     .SYS    SLWC     00-JAN-1970      1
+DIRECT  .SYS    SLW      00-JAN-1970     18
+
+HDOS> 
+> 

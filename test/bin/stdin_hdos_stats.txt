@@ -1,0 +1,5 @@
+hdos
+stats
+exit
+quit
+
