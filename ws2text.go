@@ -6,8 +6,30 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
 )
+
+func printable(b byte) bool {
+	result := true
+
+	// control characters are not printable
+	if b < 32 {
+		result = false
+	}
+
+	// but a TAB is printable
+	if b == 9 {
+		result = true
+	}
+
+	// and CR and LF are printable
+	if b == 10 || b == 13 {
+		result = true
+	}
+
+	return result
+}
 
 func main() {
 	flag.Parse()
@@ -19,28 +41,29 @@ func main() {
 
 	filename := args[0]
 
-	fh, err := os.Open(filename)
+	bytes, err := ioutil.ReadFile(filename)
 	if err != nil {
 		fmt.Println(err.Error())
 		os.Exit(1)
 	}
-	defer fh.Close()
 
-	done := false
+	eof := false
 
-	for !done {
-		bytes := make([]byte, 256)
-
-		// read some bytes
-		_, err := fh.Read(bytes)
-		if err != nil {
-			fmt.Println(err.Error())
-			done = true
+	// print almost all bytes
+	for _, b := range bytes {
+		if b == 26 {
+			// CTRL-Z indicates end of text file
+			eof = true
 		}
 
-		// print all bytes, strip high bit
-		for _, b := range bytes {
-			fmt.Printf("%c", b&0x7F)
+		if !eof {
+			// strip high bit
+			b2 := b & 0x07F
+
+			// print printable characters (and TAB, CR, and LF)
+			if printable(b2) {
+				fmt.Printf("%c", b2)
+			}
 		}
 	}
 }

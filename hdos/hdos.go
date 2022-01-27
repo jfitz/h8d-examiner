@@ -333,7 +333,7 @@ func typeCommand(fh *os.File, label Label, grtSector []byte, filename string) {
 	fmt.Println()
 }
 
-func dumpCommand(fh *os.File, label Label, grtSector []byte, filename string) {
+func dumpCommand(fh *os.File, label Label, grtSector []byte, filename string, format string) {
 	sectorNumbers, found := fileSectors(fh, label, grtSector, filename)
 
 	if found {
@@ -345,7 +345,7 @@ func dumpCommand(fh *os.File, label Label, grtSector []byte, filename string) {
 			if err != nil {
 				fmt.Println("Count not read sector")
 			} else {
-				utils.Dump(sectorBytes, i, "octal")
+				utils.Dump(sectorBytes, i, format)
 				fmt.Println()
 			}
 		}
@@ -460,6 +460,8 @@ func Menu(reader *bufio.Reader, fh *os.File, exportDirectory string) {
 	grtSector, err := utils.ReadSector(fh, label.Grt)
 	utils.CheckAndExit(err)
 
+	dump_format := "octal"
+
 	// prompt for command and process it
 	done := false
 	for !done {
@@ -486,12 +488,28 @@ func Menu(reader *bufio.Reader, fh *os.File, exportDirectory string) {
 			catCommand(fh, label, grtSector)
 		} else if parts[0] == "dir" {
 			dirCommand(fh, label, grtSector)
-		} else if parts[0] == "type" && len(parts) == 2 {
-			typeCommand(fh, label, grtSector, parts[1])
+		} else if parts[0] == "type" {
+			if len(parts) > 1 {
+				typeCommand(fh, label, grtSector, parts[1])
+			} else {
+				fmt.Println("File name required")
+			}
 		} else if parts[0] == "dump" {
-			dumpCommand(fh, label, grtSector, parts[1])
+			if len(parts) > 1 {
+				format := dump_format
+				if len(parts) > 2 {
+					format = parts[2]
+				}
+				dumpCommand(fh, label, grtSector, parts[1], format)
+			} else {
+				fmt.Println("File name required")
+			}
 		} else if parts[0] == "export" {
-			exportCommand(fh, label, grtSector, parts[1], exportDirectory)
+			if len(parts) > 1 {
+				exportCommand(fh, label, grtSector, parts[1], exportDirectory)
+			} else {
+				fmt.Println("File name required")
+			}
 		} else {
 			help()
 			fmt.Println()

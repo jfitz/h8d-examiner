@@ -43,8 +43,7 @@ const (
 	DoubleSided DiskSides = 2
 )
 
-type DiskParams struct {
-	Type             DiskType
+type DiskGeometry struct {
 	Sides            DiskSides
 	Tracks           int
 	SectorsPerTrack  int
@@ -107,20 +106,7 @@ func dumpAscii(bytes []byte) {
 	}
 }
 
-func Dump(sector []byte, sectorIndex int, base string) error {
-	// display the sector
-
-	// print header information
-	if base == "hex" {
-		fmt.Printf("Sector: %04XH (%d):\n", sectorIndex, sectorIndex)
-	} else {
-		highByte := sectorIndex / 256
-		lowByte := sectorIndex % 256
-		fmt.Printf("Sector: %03o.%03oA (%d):\n", highByte, lowByte, sectorIndex)
-	}
-
-	fmt.Println()
-
+func dumpSector(sector []byte, format string) {
 	// print data in lines of 16 bytes
 	for i := 0; i < len(sector); i += 16 {
 		upper := i + 16
@@ -131,14 +117,15 @@ func Dump(sector []byte, sectorIndex int, base string) error {
 
 		bytes := sector[i:upper]
 
-		// print in hex or octal
-		if base == "hex" {
+		// print offset
+		if format == "hex" {
 			fmt.Printf("%02X: ", i)
 		} else {
 			fmt.Printf("%03o: ", i)
 		}
 
-		if base == "hex" {
+		// print contents
+		if format == "hex" {
 			fmt.Printf("% 02X", bytes)
 		} else {
 			dumpOctal(bytes)
@@ -151,6 +138,23 @@ func Dump(sector []byte, sectorIndex int, base string) error {
 
 		fmt.Println()
 	}
+}
+
+func Dump(sector []byte, sectorIndex int, format string) error {
+	// display the sector
+
+	// print header information
+	if format == "hex" {
+		fmt.Printf("Sector: %04XH (%d):\n", sectorIndex, sectorIndex)
+	} else {
+		highByte := sectorIndex / 256
+		lowByte := sectorIndex % 256
+		fmt.Printf("Sector: %03o.%03oA (%d):\n", highByte, lowByte, sectorIndex)
+	}
+
+	fmt.Println()
+
+	dumpSector(sector, format)
 
 	return nil
 }
