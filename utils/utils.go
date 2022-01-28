@@ -17,6 +17,13 @@ func CheckAndExit(e error) {
 	}
 }
 
+func EchoInput(s string) {
+	o, _ := os.Stdin.Stat()
+	if (o.Mode() & os.ModeCharDevice) != os.ModeCharDevice {
+		fmt.Println(s)
+	}
+}
+
 func TrimSlice(slice []byte) []byte {
 	n := bytes.IndexByte(slice, byte(0))
 

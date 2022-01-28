@@ -1,5 +1,7 @@
-> 
-HDOS> First directory sector: 0x84 (132)
+> hdos
+
+HDOS> stats
+First directory sector: 0x84 (132)
 GRT sector: 0x94 (148)
 Sectors per group: 2
 INIT.ABS version: 0x20
@@ -9,5 +11,7 @@ Sectors per track: 10
 Label: empty disk image:  1 side,  40 tracks                       
 Free sectors: 370
 
-HDOS> 
-> 
+HDOS> exit
+
+> quit
+

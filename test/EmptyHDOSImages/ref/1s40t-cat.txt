@@ -1,8 +1,12 @@
-> 
-HDOS> Name                      Flags    Created        Modified      Used  Allocated
+> hdos
+
+HDOS> cat
+Name                      Flags    Created        Modified      Used  Allocated
 RGT     .SYS[0000];000    SLWC     00-JAN-1970    00-JAN-1970      1      2
 GRT     .SYS[0000];000    SLWC     00-JAN-1970    00-JAN-1970      1      2
 DIRECT  .SYS[0000];000    SLW      00-JAN-1970    00-JAN-1970     18     18
 
-HDOS> 
-> 
+HDOS> exit
+
+> quit
+

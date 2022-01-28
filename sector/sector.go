@@ -61,6 +61,7 @@ func Menu(reader *bufio.Reader, fh *os.File) {
 
 		// process the command
 		line = strings.TrimSpace(line)
+		utils.EchoInput(line)
 
 		if line == "exit" {
 			fmt.Println()

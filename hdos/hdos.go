@@ -472,6 +472,7 @@ func Menu(reader *bufio.Reader, fh *os.File, exportDirectory string) {
 
 		// process the command
 		line = strings.TrimSpace(line)
+		utils.EchoInput(line)
 		parts := strings.Split(line, " ")
 
 		if parts[0] == "exit" {

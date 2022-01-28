@@ -117,6 +117,7 @@ func main() {
 
 			// process the command
 			line = strings.TrimSpace(line)
+			utils.EchoInput(line)
 
 			if line == "quit" {
 				fmt.Println()
