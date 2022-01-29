@@ -1,0 +1,13 @@
+> stats
+Image: test/CPM_Apps/data/C80CPM2.h8d
+Size: 102400 (100K)
+Last sector: 018FH (399)
+
+> cp/m
+
+CP/M> stats
+not implemented
+CP/M> exit
+
+> quit
+

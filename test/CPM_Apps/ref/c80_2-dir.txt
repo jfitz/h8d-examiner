@@ -1,0 +1,27 @@
+> cp/m
+
+CP/M> dir
+
+User: 0
+Name          Flags      Records
+CLIBIO.C                    206
+EXEC.C                       40
+HELLO.C                       1
+SCANF.C                      70
+SCANF.H                       2
+TAB.C                         5
+CMP.C                        10
+CTRACE.C                     18
+PRINTF.C                     48
+PRINTF.H                      2
+STDLIB.REL                   27
+TREE.C                       11
+STDLIB.C                     80
+TPRINTF.C                    24
+COMMAND.C                    16
+SEEK.C                       47
+
+CP/M> exit
+
+> quit
+

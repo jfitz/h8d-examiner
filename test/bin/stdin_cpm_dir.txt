@@ -1,0 +1,5 @@
+cp/m
+dir
+exit
+quit
+
