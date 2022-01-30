@@ -4,12 +4,12 @@ CP/M> dir
 
 User: 0
 Name          Flags      Records
+AS.COM                      108
 C.COM                       308
 CCONFIG.COM                  71
 CLIBRARY.ASM                 98
 CLIBRARY.REL                 32
 CPROF.C                      33
-AS.COM                      108
 
 CP/M> exit
 

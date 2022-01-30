@@ -4,15 +4,15 @@ CP/M> dir
 
 User: 0
 Name          Flags      Records
-FPRINTF.C                    61
+CCONFIGF.COM                 71
 FLIBRARY.REL                 54
 FLOATLIB.ASM                 95
+FPRINTF.C                    61
 FPRINTF.H                     2
 LGFLTLIB.ASM                 19
 LONGLIB.ASM                  33
 MATHLIB.C                    42
 MATHLIB.REL                  33
-CCONFIGF.COM                 71
 
 CP/M> exit
 

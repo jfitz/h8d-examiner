@@ -362,6 +362,7 @@ func dirCommand(fh *os.File, directory []byte, diskGeometry utils.DiskGeometry, 
 		index := 0
 		entrySize := 32
 
+		fileNames := []string{}
 		fileBlocks := map[string]int{}
 		fileFlags := map[string]string{}
 
@@ -386,6 +387,11 @@ func dirCommand(fh *os.File, directory []byte, diskGeometry utils.DiskGeometry, 
 				// get filename
 				filename := entry.nameToText()
 
+				if _, ok := fileBlocks[filename]; ok {
+				} else {
+					fileNames = append(fileNames, filename)
+				}
+
 				if entry.Extent == 0 {
 					// extract flags from extension and name
 					name_flags := getHighBit(entry.Name[:])
@@ -405,8 +411,9 @@ func dirCommand(fh *os.File, directory []byte, diskGeometry utils.DiskGeometry, 
 		}
 
 		// for each file, print info
-		for filename, size := range fileBlocks {
+		for _, filename := range fileNames {
 			flags := fileFlags[filename]
+			size := fileBlocks[filename]
 			fmt.Printf("%-12s  %s %5d\n", filename, flags, size)
 		}
 	}
