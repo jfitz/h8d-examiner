@@ -174,45 +174,65 @@ func getFileSectors(wantedName string, directoryBlock []byte, grtSector []byte, 
 }
 
 type Label struct {
-	Dis  int
+	Serial int
+	Date []byte
+	Dir int
 	Grt  int
 	Spg  int
+	Type int
 	Ver  int
+	Rgt int
 	Siz  int
 	Pss  int
+	Flags int
 	Spt  int
 	Text string
 }
 
 func (label *Label) Init(sector []byte) {
-	// extract and validate sector number for first directory sector [10,399]
-	label.Dis = int(sector[3]) + int(sector[4])*256
+	// serial number
+	label.Serial = int(sector[0])
 
-	// extract and validate sector number for GRT [10,399]
+	// initialization date
+	label.Date = sector[1:3]
+
+	// sector number for first directory sector [10,399]
+	label.Dir = int(sector[3]) + int(sector[4])*256
+
+	// sector number for GRT [10,399]
 	label.Grt = int(sector[5]) + int(sector[6])*256
 
-	// extract and validate sectors per group in 2,4,8
+	// sectors per group in 2,4,8
 	label.Spg = int(sector[7])
 
-	// extract and validate init.abs version in 00h,15h,16h,20h
+	// volume type 0 => data 1 => bootable 2 => no directory
+	label.Type = int(sector[8])
+
+	// init.abs version in 00h,15h,16h,20h
 	label.Ver = int(sector[9])
 
 	// default values for H-17 SSSD disk
+	label.Rgt = 0
 	label.Siz = 400
 	label.Pss = 256
+	label.Flags = 0
 	label.Spt = 10
 
 	// HDOS 2.0 knows about H-47 and H-37 disks
 	if label.Ver >= 0x20 {
-		// extract and validate number of sectors
+		// sector number for RGT
+		label.Rgt = int(sector[10]) + int(sector[11])*256
+
+		// number of sectors
 		label.Siz = int(sector[12]) + int(sector[13])*256
 
-		// extract and validate sector size == 256
+		// physical sector size == 256
 		label.Pss = int(sector[14]) + int(sector[15])*256
 
-		// extract and validate flags 0 => 40tk1s 1=> 40tk2s 2=> 80tk1s 3=> 80tk2s
+		// flags 0 => 40tk1s 1=> 40tk2s 2=> 80tk1s 3=> 80tk2s
+		label.Flags = int(sector[16])
 
-		// extract and validate sectors per track == 10
+		// sectors per track == 10
 		label.Spt = int(sector[79])
 	}
 
@@ -225,12 +245,17 @@ func (label *Label) Init(sector []byte) {
 }
 
 func (label Label) Print() {
-	fmt.Printf("First directory sector: 0x%02X (%d)\n", label.Dis, label.Dis)
+	fmt.Printf("Serial number: %d\n", label.Serial)
+	initDate := dateToText(label.Date)
+	fmt.Printf("Date initialized: %s\n", initDate)
+	fmt.Printf("First directory sector: 0x%02X (%d)\n", label.Dir, label.Dir)
 	fmt.Printf("GRT sector: 0x%02X (%d)\n", label.Grt, label.Grt)
 	fmt.Printf("Sectors per group: %d\n", label.Spg)
 	fmt.Printf("INIT.ABS version: 0x%02X\n", label.Ver)
+	fmt.Printf("RGT sector: 0x%02X (%d)\n", label.Rgt, label.Rgt)
 	fmt.Printf("Number of sectors: %d\n", label.Siz)
 	fmt.Printf("Sector size: %d\n", label.Pss)
+	fmt.Printf("Volume flags: 0x%02X\n", label.Flags)
 	fmt.Printf("Sectors per track: %d\n", label.Spt)
 	fmt.Printf("Label: %s\n", label.Text)
 }
@@ -239,7 +264,7 @@ func catCommand(fh *os.File, label Label, grtSector []byte) {
 	fmt.Println("Name                      Flags    Created        Modified      Used  Allocated")
 
 	// start with first directory sector
-	sectorIndex := label.Dis
+	sectorIndex := label.Dir
 
 	for sectorIndex != 0 {
 		directoryBlock, err := readSectorPair(fh, sectorIndex)
@@ -263,7 +288,7 @@ func dirCommand(fh *os.File, label Label, grtSector []byte) {
 	fmt.Println("Name            Flags    Modified      Used")
 
 	// start with first directory sector
-	sectorIndex := label.Dis
+	sectorIndex := label.Dir
 
 	for sectorIndex != 0 {
 		directoryBlock, err := readSectorPair(fh, sectorIndex)
@@ -285,7 +310,7 @@ func dirCommand(fh *os.File, label Label, grtSector []byte) {
 
 func fileSectors(fh *os.File, label Label, grtSector []byte, wantedFilename string) ([]int, bool) {
 	// start with first directory sector
-	sectorIndex := label.Dis
+	sectorIndex := label.Dir
 
 	fileSectors := []int{}
 
