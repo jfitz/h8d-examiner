@@ -7,7 +7,6 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/jfitz/h8d-examiner/utils"
-	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -21,16 +20,15 @@ func help() {
 	fmt.Println("hex   - show dump in hex")
 }
 
-func dumpSector(fh *os.File, sectorIndex int, base string) error {
-	sector, err := utils.ReadSector(fh, sectorIndex)
-	if err != nil {
-		return err
-	}
+func dumpSector(data []byte, sectorIndex int, base string) error {
+	start1 := sectorIndex * 256
+	end1 := start1 + 256
+	sector := data[start1:end1]
 
 	return utils.Dump(sector, sectorIndex, base)
 }
 
-func Menu(reader *bufio.Reader, fh *os.File) {
+func Menu(reader *bufio.Reader, data []byte) {
 	// set default values
 	base := "hex"
 	sectorIndex := 0
@@ -40,13 +38,12 @@ func Menu(reader *bufio.Reader, fh *os.File) {
 	utils.CheckAndExit(err)
 
 	// display the first sector
-	err = dumpSector(fh, sectorIndex, base)
+	err = dumpSector(data, sectorIndex, base)
 	utils.CheckAndExit(err)
 	fmt.Println()
 	lastWasDump = true
 
-	fileInfo, err := fh.Stat()
-	fileSize := fileInfo.Size()
+	fileSize := len(data)
 	fileSizeInK := fileSize / 1024
 	fileSectorCount := fileSize / 256
 	fileLastSector := fileSectorCount - 1
@@ -75,28 +72,28 @@ func Menu(reader *bufio.Reader, fh *os.File) {
 				sectorIndex += 1
 			}
 
-			err = dumpSector(fh, sectorIndex, base)
+			err = dumpSector(data, sectorIndex, base)
 			utils.CheckAndExit(err)
 			fmt.Println()
 			lastWasDump = true
 		} else if numberPattern.MatchString(line) {
 			sectorIndex, _ = strconv.Atoi(line)
 
-			err = dumpSector(fh, sectorIndex, base)
+			err = dumpSector(data, sectorIndex, base)
 			utils.CheckAndExit(err)
 			fmt.Println()
 			lastWasDump = true
 		} else if line == "octal" {
 			base = "octal"
 
-			err = dumpSector(fh, sectorIndex, base)
+			err = dumpSector(data, sectorIndex, base)
 			utils.CheckAndExit(err)
 			fmt.Println()
 			lastWasDump = true
 		} else if line == "hex" {
 			base = "hex"
 
-			err = dumpSector(fh, sectorIndex, base)
+			err = dumpSector(data, sectorIndex, base)
 			utils.CheckAndExit(err)
 			fmt.Println()
 			lastWasDump = true

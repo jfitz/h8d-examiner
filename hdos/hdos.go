@@ -5,7 +5,6 @@ package hdos
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"github.com/jfitz/h8d-examiner/utils"
 	"os"
@@ -22,21 +21,19 @@ func help() {
 	fmt.Println("exit   - exit to main level")
 }
 
-func readSectorPair(fh *os.File, sectorIndex int) ([]byte, error) {
+func readSectorPair(data []byte, sectorIndex int) ([]byte) {
 	// read 2 sectors (512 bytes)
-	first, err := utils.ReadSector(fh, sectorIndex)
-	if err != nil {
-		return []byte{}, errors.New("Cannot read first directory sector")
-	}
+	start1 := sectorIndex * 256
+	end1 := start1 + 256
+	first := data[start1:end1]
 
-	second, err := utils.ReadSector(fh, sectorIndex+1)
-	if err != nil {
-		return []byte{}, errors.New("Cannot read second directory sector")
-	}
+	start2 := end1
+	end2 := start2 + 256
+	second := data[start2:end2]
 
 	directoryBlock := append(first, second...)
 
-	return directoryBlock, nil
+	return directoryBlock
 }
 
 func getSectors(grt []byte, firstCluster byte, lastCluster byte, lastSector int, sectorsPerGroup int) []int {
@@ -260,18 +257,14 @@ func (label Label) Print() {
 	fmt.Printf("Label: %s\n", label.Text)
 }
 
-func catCommand(fh *os.File, label Label, grtSector []byte) {
+func catCommand(data []byte, label Label, grtSector []byte) {
 	fmt.Println("Name                      Flags    Created        Modified      Used  Allocated")
 
 	// start with first directory sector
 	sectorIndex := label.Dir
 
 	for sectorIndex != 0 {
-		directoryBlock, err := readSectorPair(fh, sectorIndex)
-		if err != nil {
-			fmt.Println(err.Error())
-		}
-
+		directoryBlock := readSectorPair(data, sectorIndex)
 		printDirectoryBlock(directoryBlock, grtSector, label.Spg, true)
 
 		// read 6 bytes
@@ -284,18 +277,14 @@ func catCommand(fh *os.File, label Label, grtSector []byte) {
 	fmt.Println()
 }
 
-func dirCommand(fh *os.File, label Label, grtSector []byte) {
+func dirCommand(data []byte, label Label, grtSector []byte) {
 	fmt.Println("Name            Flags    Modified      Used")
 
 	// start with first directory sector
 	sectorIndex := label.Dir
 
 	for sectorIndex != 0 {
-		directoryBlock, err := readSectorPair(fh, sectorIndex)
-		if err != nil {
-			fmt.Println(err.Error())
-		}
-
+		directoryBlock := readSectorPair(data, sectorIndex)
 		printDirectoryBlock(directoryBlock, grtSector, label.Spg, false)
 
 		// read 6 bytes
@@ -308,7 +297,7 @@ func dirCommand(fh *os.File, label Label, grtSector []byte) {
 	fmt.Println()
 }
 
-func fileSectors(fh *os.File, label Label, grtSector []byte, wantedFilename string) ([]int, bool) {
+func fileSectors(data []byte, label Label, grtSector []byte, wantedFilename string) ([]int, bool) {
 	// start with first directory sector
 	sectorIndex := label.Dir
 
@@ -317,11 +306,7 @@ func fileSectors(fh *os.File, label Label, grtSector []byte, wantedFilename stri
 	found := false
 
 	for sectorIndex != 0 && !found {
-		directoryBlock, err := readSectorPair(fh, sectorIndex)
-		if err != nil {
-			fmt.Println(err.Error())
-		}
-
+		directoryBlock := readSectorPair(data, sectorIndex)
 		fileSectors, found = getFileSectors(wantedFilename, directoryBlock, grtSector, label.Spg)
 
 		// read 6 bytes
@@ -334,19 +319,17 @@ func fileSectors(fh *os.File, label Label, grtSector []byte, wantedFilename stri
 	return fileSectors, found
 }
 
-func typeCommand(fh *os.File, label Label, grtSector []byte, filename string) {
-	sectorNumbers, found := fileSectors(fh, label, grtSector, filename)
+func typeCommand(data []byte, label Label, grtSector []byte, filename string) {
+	sectorNumbers, found := fileSectors(data, label, grtSector, filename)
 
 	if found {
 		// for each sector
 		for _, sectorNumber := range sectorNumbers {
-			sectorBytes, err := utils.ReadSector(fh, sectorNumber)
-			if err != nil {
-				fmt.Println("Count not read sector")
-			} else {
-				text := string(sectorBytes)
-				fmt.Print(text)
-			}
+			start1 := sectorNumber * 256
+			end1 := start1 + 256
+			sectorBytes := data[start1:end1]
+			text := string(sectorBytes)
+			fmt.Print(text)
 		}
 
 		fmt.Println()
@@ -358,21 +341,19 @@ func typeCommand(fh *os.File, label Label, grtSector []byte, filename string) {
 	fmt.Println()
 }
 
-func dumpCommand(fh *os.File, label Label, grtSector []byte, filename string, format string) {
-	sectorNumbers, found := fileSectors(fh, label, grtSector, filename)
+func dumpCommand(data []byte, label Label, grtSector []byte, filename string, format string) {
+	sectorNumbers, found := fileSectors(data, label, grtSector, filename)
 
 	if found {
 		fmt.Println()
 
 		// for each sector
 		for i, sectorNumber := range sectorNumbers {
-			sectorBytes, err := utils.ReadSector(fh, sectorNumber)
-			if err != nil {
-				fmt.Println("Count not read sector")
-			} else {
-				utils.Dump(sectorBytes, i, format)
-				fmt.Println()
-			}
+			start1 := sectorNumber * 256
+			end1 := start1 + 256
+			sectorBytes := data[start1:end1]
+			utils.Dump(sectorBytes, i, format)
+			fmt.Println()
 		}
 
 		fmt.Println()
@@ -384,8 +365,8 @@ func dumpCommand(fh *os.File, label Label, grtSector []byte, filename string, fo
 	fmt.Println()
 }
 
-func exportCommand(fh *os.File, label Label, grtSector []byte, filename string, exportDirectory string) {
-	sectorNumbers, found := fileSectors(fh, label, grtSector, filename)
+func exportCommand(data []byte, label Label, grtSector []byte, filename string, exportDirectory string) {
+	sectorNumbers, found := fileSectors(data, label, grtSector, filename)
 
 	if found {
 		fmt.Println("Exporting file...")
@@ -402,13 +383,11 @@ func exportCommand(fh *os.File, label Label, grtSector []byte, filename string, 
 
 		// for each sector
 		for _, sectorNumber := range sectorNumbers {
-			sectorBytes, err := utils.ReadSector(fh, sectorNumber)
-			if err != nil {
-				fmt.Println("Count not read sector")
-			} else {
-				// write sector
-				f.Write(sectorBytes)
-			}
+			start1 := sectorNumber * 256
+			end1 := start1 + 256
+			sectorBytes := data[start1:end1]
+			// write sector
+			f.Write(sectorBytes)
 		}
 
 		fmt.Println("Done")
@@ -419,55 +398,43 @@ func exportCommand(fh *os.File, label Label, grtSector []byte, filename string, 
 	fmt.Println()
 }
 
-func readLabel(fh *os.File) (Label, error) {
+func readLabel(data []byte) (Label) {
 	label := Label{}
 
 	// read sector 9
-	sectorIndex := 9
-	sector, err := utils.ReadSector(fh, sectorIndex)
-	if err != nil {
-		return label, errors.New("Cannot read sector 9")
-	}
+	sectorNumber := 9
+	start1 := sectorNumber * 256
+	end1 := start1 + 256
+	sectorBytes := data[start1:end1]
+	label.Init(sectorBytes)
 
-	label.Init(sector)
-
-	return label, nil
+	return label
 }
 
-func Export(fh *os.File, exportSpec string, exportDirectory string) {
-	label, err := readLabel(fh)
-	if err != nil {
-		fmt.Println(err.Error)
-		return
-	}
+func Export(data []byte, exportSpec string, exportDirectory string) {
+	label := readLabel(data)
 
 	// read Group Reservation Table (GRT)
-	grtSector, err := utils.ReadSector(fh, label.Grt)
-	utils.CheckAndExit(err)
+	start1 := label.Grt * 256
+	end1 := start1 + 256
+	sectorBytes := data[start1:end1]
 
-	exportCommand(fh, label, grtSector, exportSpec, exportDirectory)
+	exportCommand(data, label, sectorBytes, exportSpec, exportDirectory)
 }
 
-func Cat(fh *os.File) {
-	label, err := readLabel(fh)
-	if err != nil {
-		fmt.Println(err.Error)
-		return
-	}
+func Cat(data []byte) {
+	label := readLabel(data)
 
 	// read Group Reservation Table (GRT)
-	grtSector, err := utils.ReadSector(fh, label.Grt)
-	utils.CheckAndExit(err)
+	start1 := label.Grt * 256
+	end1 := start1 + 256
+	sectorBytes := data[start1:end1]
 
-	dirCommand(fh, label, grtSector)
+	dirCommand(data, label, sectorBytes)
 }
 
-func Menu(reader *bufio.Reader, fh *os.File, exportDirectory string) {
-	label, err := readLabel(fh)
-	if err != nil {
-		fmt.Println(err.Error)
-		return
-	}
+func Menu(reader *bufio.Reader, data []byte, exportDirectory string) {
+	label := readLabel(data)
 
 	// check text label
 	labelError := false
@@ -482,9 +449,9 @@ func Menu(reader *bufio.Reader, fh *os.File, exportDirectory string) {
 	}
 
 	// read Group Reservation Table (GRT)
-	grtSector, err := utils.ReadSector(fh, label.Grt)
-	utils.CheckAndExit(err)
-
+	start1 := label.Grt * 256
+	end1 := start1 + 256
+	grtSector := data[start1:end1]
 	dump_format := "octal"
 
 	// prompt for command and process it
@@ -511,12 +478,12 @@ func Menu(reader *bufio.Reader, fh *os.File, exportDirectory string) {
 			fmt.Printf("Free sectors: %d\n", freeSectorCount)
 			fmt.Println()
 		} else if parts[0] == "cat" {
-			catCommand(fh, label, grtSector)
+			catCommand(data, label, grtSector)
 		} else if parts[0] == "dir" {
-			dirCommand(fh, label, grtSector)
+			dirCommand(data, label, grtSector)
 		} else if parts[0] == "type" {
 			if len(parts) > 1 {
-				typeCommand(fh, label, grtSector, parts[1])
+				typeCommand(data, label, grtSector, parts[1])
 			} else {
 				fmt.Println("File name required")
 			}
@@ -526,13 +493,13 @@ func Menu(reader *bufio.Reader, fh *os.File, exportDirectory string) {
 				if len(parts) > 2 {
 					format = parts[2]
 				}
-				dumpCommand(fh, label, grtSector, parts[1], format)
+				dumpCommand(data, label, grtSector, parts[1], format)
 			} else {
 				fmt.Println("File name required")
 			}
 		} else if parts[0] == "export" {
 			if len(parts) > 1 {
-				exportCommand(fh, label, grtSector, parts[1], exportDirectory)
+				exportCommand(data, label, grtSector, parts[1], exportDirectory)
 			} else {
 				fmt.Println("File name required")
 			}

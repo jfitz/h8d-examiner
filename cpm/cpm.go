@@ -5,7 +5,6 @@ package cpm
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"github.com/jfitz/h8d-examiner/utils"
 	"os"
@@ -310,7 +309,7 @@ func (entry DirectoryEntry) allocationBlocks() []int {
 }
 
 // print detailed catalog from directory
-func catCommand(fh *os.File, directory []byte, details bool, diskGeometry utils.DiskGeometry, diskType utils.DiskType) {
+func catCommand(data []byte, directory []byte, details bool, diskGeometry utils.DiskGeometry, diskType utils.DiskType) {
 	fmt.Println("User Name          Extent Flags         Records Blocks")
 
 	index := 0
@@ -355,7 +354,7 @@ func catCommand(fh *os.File, directory []byte, details bool, diskGeometry utils.
 }
 
 // print file-oriented directory (one line per file, not per entry)
-func dirCommand(fh *os.File, directory []byte, diskGeometry utils.DiskGeometry, diskType utils.DiskType) {
+func dirCommand(data []byte, directory []byte, diskGeometry utils.DiskGeometry, diskType utils.DiskType) {
 	// for each user (0 to 31)
 	for user := 0; user < 32; user++ {
 		// get list of all file names with no repeats (strip flags)
@@ -421,21 +420,20 @@ func dirCommand(fh *os.File, directory []byte, diskGeometry utils.DiskGeometry, 
 	fmt.Println()
 }
 
-func readRecord(fh *os.File, recordNumber int) ([]byte, error) {
+func readRecord(data []byte, recordNumber int) ([]byte) {
 	sectorNumber := recordNumber / 2
 	offset := recordNumber % 2
 
 	recordBytes := []byte{}
-	sectorBytes, err := utils.ReadSector(fh, sectorNumber)
-	if err != nil {
-		return recordBytes, err
-	}
+	start1 := sectorNumber * 256
+	end1 := start1 + 256
+	sectorBytes := data[start1:end1]
 
 	start := 0 + 128*offset
 	end := start + 128
 	recordBytes = sectorBytes[start:end]
 
-	return recordBytes, nil
+	return recordBytes
 }
 
 func displayText(bytes []byte) {
@@ -452,39 +450,31 @@ func displayText(bytes []byte) {
 	}
 }
 
-func displayRecords(fh *os.File, recordNumbers []int) {
+func displayRecords(data []byte, recordNumbers []int) {
 	// for each record in block
 	for _, record := range recordNumbers {
 		// read data
-		recordBytes, err := readRecord(fh, record)
+		recordBytes := readRecord(data, record)
 
-		if err != nil {
-			fmt.Println("Could not read record")
-		} else {
-			// print data
-			displayText(recordBytes)
-		}
+		// print data
+		displayText(recordBytes)
 	}
 }
 
-func dumpRecords(fh *os.File, format string, recordNumbers []int) {
+func dumpRecords(data []byte, format string, recordNumbers []int) {
 	// for each record in block
 	for i, record := range recordNumbers {
 		fmt.Printf("RECORD: %d\n", i)
 		// read data
-		recordBytes, err := readRecord(fh, record)
+		recordBytes := readRecord(data, record)
 
-		if err != nil {
-			fmt.Println("Could not read record")
-		} else {
-			// print data
-			utils.Dump(recordBytes, i, format)
-			fmt.Println()
-		}
+		// print data
+		utils.Dump(recordBytes, i, format)
+		fmt.Println()
 	}
 }
 
-func exportRecords(fh *os.File, recordNumbers []int, filename string, exportDirectory string) {
+func exportRecords(data []byte, recordNumbers []int, filename string, exportDirectory string) {
 	fmt.Println("Exporting file...")
 
 	// open file
@@ -501,7 +491,7 @@ func exportRecords(fh *os.File, recordNumbers []int, filename string, exportDire
 	for _, record := range recordNumbers {
 
 		// read data
-		recordBytes, err := readRecord(fh, record)
+		recordBytes := readRecord(data, record)
 
 		if err != nil {
 			fmt.Println("Could not read record")
@@ -514,7 +504,7 @@ func exportRecords(fh *os.File, recordNumbers []int, filename string, exportDire
 	fmt.Println("Done")
 }
 
-func getRecordNumbers(fh *os.File, directory []byte, user int, name string, extension string, diskGeometry utils.DiskGeometry, diskType utils.DiskType) ([]int, bool) {
+func getRecordNumbers(data []byte, directory []byte, user int, name string, extension string, diskGeometry utils.DiskGeometry, diskType utils.DiskType) ([]int, bool) {
 	recordNumbers := []int{}
 
 	entrySize := 32
@@ -575,13 +565,13 @@ func splitFilename(filename string) (int, string, string) {
 	return user, name, extension
 }
 
-func typeCommand(fh *os.File, directory []byte, filename string, diskGeometry utils.DiskGeometry, diskType utils.DiskType) {
+func typeCommand(data []byte, directory []byte, filename string, diskGeometry utils.DiskGeometry, diskType utils.DiskType) {
 	user, name, extension := splitFilename(filename)
 
-	recordNumbers, found := getRecordNumbers(fh, directory, user, name, extension, diskGeometry, diskType)
+	recordNumbers, found := getRecordNumbers(data, directory, user, name, extension, diskGeometry, diskType)
 
 	if found {
-		displayRecords(fh, recordNumbers)
+		displayRecords(data, recordNumbers)
 	} else {
 		fmt.Println("File not found")
 	}
@@ -590,13 +580,13 @@ func typeCommand(fh *os.File, directory []byte, filename string, diskGeometry ut
 	fmt.Println()
 }
 
-func dumpCommand(fh *os.File, directory []byte, filename string, format string, diskGeometry utils.DiskGeometry, diskType utils.DiskType) {
+func dumpCommand(data []byte, directory []byte, filename string, format string, diskGeometry utils.DiskGeometry, diskType utils.DiskType) {
 	user, name, extension := splitFilename(filename)
 
-	recordNumbers, found := getRecordNumbers(fh, directory, user, name, extension, diskGeometry, diskType)
+	recordNumbers, found := getRecordNumbers(data, directory, user, name, extension, diskGeometry, diskType)
 
 	if found {
-		dumpRecords(fh, format, recordNumbers)
+		dumpRecords(data, format, recordNumbers)
 	} else {
 		fmt.Println("File not found")
 	}
@@ -605,13 +595,13 @@ func dumpCommand(fh *os.File, directory []byte, filename string, format string, 
 	fmt.Println()
 }
 
-func exportCommand(fh *os.File, directory []byte, filename string, exportDirectory string, diskGeometry utils.DiskGeometry, diskType utils.DiskType) {
+func exportCommand(data []byte, directory []byte, filename string, exportDirectory string, diskGeometry utils.DiskGeometry, diskType utils.DiskType) {
 	user, name, extension := splitFilename(filename)
 
-	recordNumbers, found := getRecordNumbers(fh, directory, user, name, extension, diskGeometry, diskType)
+	recordNumbers, found := getRecordNumbers(data, directory, user, name, extension, diskGeometry, diskType)
 
 	if found {
-		exportRecords(fh, recordNumbers, filename, exportDirectory)
+		exportRecords(data, recordNumbers, filename, exportDirectory)
 	} else {
 		fmt.Println("File not found")
 	}
@@ -619,7 +609,7 @@ func exportCommand(fh *os.File, directory []byte, filename string, exportDirecto
 	fmt.Println()
 }
 
-func readDirectory(fh *os.File, diskGeometry utils.DiskGeometry, diskType utils.DiskType) ([]byte, error) {
+func readDirectory(data []byte, diskGeometry utils.DiskGeometry, diskType utils.DiskType) ([]byte) {
 	blocks := []int{0, 1}
 
 	recordCount := -1
@@ -630,46 +620,27 @@ func readDirectory(fh *os.File, diskGeometry utils.DiskGeometry, diskType utils.
 	for _, record := range recordNumbers {
 
 		// read data
-		recordBytes, err := readRecord(fh, record)
-
-		if err != nil {
-			err2 := errors.New("Could not read directory record")
-			return directory, err2
-		} else {
-			directory = append(directory, recordBytes...)
-		}
+		recordBytes := readRecord(data, record)
+		directory = append(directory, recordBytes...)
 	}
 
-	return directory, nil
+	return directory
 }
 
-func Export(fh *os.File, exportSpec string, exportDirectory string, diskGeometry utils.DiskGeometry, diskType utils.DiskType) {
-	directory, err := readDirectory(fh, diskGeometry, diskType)
-	if err != nil {
-		fmt.Println(err.Error)
-		return
-	}
+func Export(data []byte, exportSpec string, exportDirectory string, diskGeometry utils.DiskGeometry, diskType utils.DiskType) {
+	directory := readDirectory(data, diskGeometry, diskType)
 
-	exportCommand(fh, directory, exportSpec, exportDirectory, diskGeometry, diskType)
+	exportCommand(data, directory, exportSpec, exportDirectory, diskGeometry, diskType)
 }
 
-func Cat(fh *os.File, diskGeometry utils.DiskGeometry, diskType utils.DiskType) {
-	directory, err := readDirectory(fh, diskGeometry, diskType)
-	if err != nil {
-		fmt.Println(err.Error)
-		return
-	}
+func Cat(data []byte, diskGeometry utils.DiskGeometry, diskType utils.DiskType) {
+	directory := readDirectory(data, diskGeometry, diskType)
 
-	dirCommand(fh, directory, diskGeometry, diskType)
+	dirCommand(data, directory, diskGeometry, diskType)
 }
 
-func Menu(reader *bufio.Reader, fh *os.File, exportDirectory string, diskGeometry utils.DiskGeometry, diskType utils.DiskType) {
-	directory, err := readDirectory(fh, diskGeometry, diskType)
-	if err != nil {
-		fmt.Println(err.Error)
-		return
-	}
-
+func Menu(reader *bufio.Reader, data []byte, exportDirectory string, diskGeometry utils.DiskGeometry, diskType utils.DiskType) {
+	directory := readDirectory(data, diskGeometry, diskType)
 	dump_format := "octal"
 
 	// prompt for command and process it
@@ -691,14 +662,14 @@ func Menu(reader *bufio.Reader, fh *os.File, exportDirectory string, diskGeometr
 		} else if parts[0] == "stats" {
 			fmt.Println("not implemented")
 		} else if parts[0] == "cat" {
-			catCommand(fh, directory, false, diskGeometry, diskType)
+			catCommand(data, directory, false, diskGeometry, diskType)
 		} else if parts[0] == "cats" {
-			catCommand(fh, directory, true, diskGeometry, diskType)
+			catCommand(data, directory, true, diskGeometry, diskType)
 		} else if parts[0] == "dir" {
-			dirCommand(fh, directory, diskGeometry, diskType)
+			dirCommand(data, directory, diskGeometry, diskType)
 		} else if parts[0] == "type" {
 			if len(parts) > 1 {
-				typeCommand(fh, directory, parts[1], diskGeometry, diskType)
+				typeCommand(data, directory, parts[1], diskGeometry, diskType)
 			} else {
 				fmt.Println("File name required")
 			}
@@ -708,13 +679,13 @@ func Menu(reader *bufio.Reader, fh *os.File, exportDirectory string, diskGeometr
 				if len(parts) > 2 {
 					format = parts[2]
 				}
-				dumpCommand(fh, directory, parts[1], format, diskGeometry, diskType)
+				dumpCommand(data, directory, parts[1], format, diskGeometry, diskType)
 			} else {
 				fmt.Println("File name required")
 			}
 		} else if parts[0] == "export" {
 			if len(parts) > 1 {
-				exportCommand(fh, directory, parts[1], exportDirectory, diskGeometry, diskType)
+				exportCommand(data, directory, parts[1], exportDirectory, diskGeometry, diskType)
 			} else {
 				fmt.Println("File name required")
 			}

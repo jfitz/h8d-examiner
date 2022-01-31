@@ -11,6 +11,7 @@ import (
 	"github.com/jfitz/h8d-examiner/hdos"
 	"github.com/jfitz/h8d-examiner/sector"
 	"github.com/jfitz/h8d-examiner/utils"
+	"io/ioutil"
 	"os"
 	"strings"
 )
@@ -66,11 +67,13 @@ func main() {
 	fh, err := os.Open(fileName)
 	utils.CheckAndExit(err)
 
-	defer fh.Close()
+	data, err := ioutil.ReadAll(fh)
+	utils.CheckAndExit(err)
+
+	fh.Close()
 
 	// get file statistics
-	fileInfo, err := fh.Stat()
-	fileSize := fileInfo.Size()
+	fileSize := len(data)
 	fileSizeInK := fileSize / 1024
 	fileSectorCount := fileSize / 256
 	fileLastSector := fileSectorCount - 1
@@ -85,9 +88,9 @@ func main() {
 			if hdosDisk && cpmDisk {
 				fmt.Println("Specify only one of HDOS and CP/M")
 			} else if hdosDisk {
-				hdos.Export(fh, exportSpec, exportDirectory)
+				hdos.Export(data, exportSpec, exportDirectory)
 			} else if cpmDisk {
-				cpm.Export(fh, exportSpec, exportDirectory, diskGeometry, diskType)
+				cpm.Export(data, exportSpec, exportDirectory, diskGeometry, diskType)
 			} else {
 				fmt.Println("Must specify either HDOS or CP/M")
 			}
@@ -96,9 +99,9 @@ func main() {
 			if hdosDisk && cpmDisk {
 				fmt.Println("Specify only one of HDOS and CP/M")
 			} else if hdosDisk {
-				hdos.Cat(fh)
+				hdos.Cat(data)
 			} else if cpmDisk {
-				cpm.Cat(fh, diskGeometry, diskType)
+				cpm.Cat(data, diskGeometry, diskType)
 			} else {
 				fmt.Println("Must specify either HDOS or CP/M")
 			}
@@ -129,13 +132,13 @@ func main() {
 				fmt.Println()
 			} else if line == "sector" {
 				fmt.Println()
-				sector.Menu(reader, fh)
+				sector.Menu(reader, data)
 			} else if line == "hdos" {
 				fmt.Println()
-				hdos.Menu(reader, fh, exportDirectory)
+				hdos.Menu(reader, data, exportDirectory)
 			} else if line == "cp/m" {
 				fmt.Println()
-				cpm.Menu(reader, fh, exportDirectory, diskGeometry, diskType)
+				cpm.Menu(reader, data, exportDirectory, diskGeometry, diskType)
 			} else if line == "RESETTERM" {
 				fmt.Println("\x1bc")
 			} else {
