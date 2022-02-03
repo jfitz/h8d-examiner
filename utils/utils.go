@@ -58,6 +58,38 @@ type DiskGeometry struct {
 	SectorsPerTrack0 int
 }
 
+type Sector struct {
+	Bytes []byte
+}
+
+func (sector *Sector) Init(bytes []byte) {
+	sector.Bytes = bytes
+}
+
+func (sector Sector) Size() int {
+	return len(sector.Bytes)
+}
+
+type Disk struct {
+	Sectors []Sector
+}
+
+func (disk *Disk) Init(bytes []byte) {
+	sectorSize := 256
+
+	for index := 0; index < len(bytes); index += sectorSize {
+		end := index + sectorSize
+		sectorBytes := bytes[index:end]
+		sector := Sector{}
+		sector.Init(sectorBytes)
+		disk.Sectors = append(disk.Sectors, sector)
+	}
+}
+
+func (disk Disk) SectorCount() (int) {
+	return len(disk.Sectors)
+}
+
 func ReadSector(fh *os.File, sectorIndex int) ([]byte, error) {
 	sector := make([]byte, 256)
 

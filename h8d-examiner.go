@@ -72,6 +72,9 @@ func main() {
 
 	fh.Close()
 
+	disk := utils.Disk{}
+	disk.Init(data)
+
 	// get file statistics
 	fileSize := len(data)
 	fileSizeInK := fileSize / 1024
